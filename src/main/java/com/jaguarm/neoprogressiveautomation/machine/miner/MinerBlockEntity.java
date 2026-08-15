@@ -76,6 +76,7 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
     private int currentY = Integer.MIN_VALUE;
     private int elapsedTicks;
     private int requiredTicks;
+    private MinerStatus status = MinerStatus.NO_PICKAXE;
 
     public MinerBlockEntity(BlockPos pos, BlockState state) {
         this(ModBlockEntities.MINER.get(), pos, state, MachineTier.WOOD);
@@ -123,10 +124,10 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
             changed = true;
         }
 
-        if (hasRequiredEquipment() && (burnTime > 0 || tryConsumeFuel(level))) {
-            if (advanceMining(level)) {
-                changed = true;
-            }
+        MinerStatus newStatus = runMining(level);
+        if (newStatus != status) {
+            status = newStatus;
+            changed = true;
         }
 
         syncLitState(level);
@@ -136,6 +137,34 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
         }
     }
 
+    /**
+     * Runs one step of mining and reports why it could or could not proceed. Every early
+     * return is a distinct reason so the GUI can tell the player what is missing rather
+     * than sitting silently idle.
+     */
+    private MinerStatus runMining(ServerLevel level) {
+        if (items.get(SLOT_PICKAXE).isEmpty()) {
+            return MinerStatus.NO_PICKAXE;
+        }
+        if (items.get(SLOT_SHOVEL).isEmpty()) {
+            return MinerStatus.NO_SHOVEL;
+        }
+        if (Config.REQUIRE_COBBLE_BACKFILL.get() && items.get(SLOT_COBBLE).isEmpty()) {
+            return MinerStatus.NO_COBBLE;
+        }
+        if (burnTime == 0 && !tryConsumeFuel(level)) {
+            return MinerStatus.NO_FUEL;
+        }
+
+        BlockPos target = findNextTarget(level);
+        if (target == null) {
+            return MinerStatus.COMPLETE;
+        }
+
+        advanceMining(level, target);
+        return MinerStatus.RUNNING;
+    }
+
     /** Keeps the LIT blockstate in step with the fuel, so the block model shows activity. */
     private void syncLitState(ServerLevel level) {
         BlockState state = getBlockState();
@@ -143,14 +172,6 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
         if (state.hasProperty(MinerBlock.LIT) && state.getValue(MinerBlock.LIT) != lit) {
             level.setBlockAndUpdate(worldPosition, state.setValue(MinerBlock.LIT, lit));
         }
-    }
-
-    /** The miner refuses to run without both tools, and without cobble when backfilling. */
-    private boolean hasRequiredEquipment() {
-        if (items.get(SLOT_PICKAXE).isEmpty() || items.get(SLOT_SHOVEL).isEmpty()) {
-            return false;
-        }
-        return !Config.REQUIRE_COBBLE_BACKFILL.get() || !items.get(SLOT_COBBLE).isEmpty();
     }
 
     private boolean tryConsumeFuel(ServerLevel level) {
@@ -170,37 +191,30 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
 
     // -- Mining -----------------------------------------------------------------
 
-    /** @return true if any state changed and the block entity needs saving */
-    private boolean advanceMining(ServerLevel level) {
-        BlockPos target = findNextTarget(level);
-        if (target == null) {
-            return false;
-        }
-
+    private void advanceMining(ServerLevel level, BlockPos target) {
         BlockState state = level.getBlockState(target);
-        ToolChoice tool = toolFor(state);
+        ToolChoice tool = toolFor(state, target);
         if (tool == ToolChoice.NONE) {
-            return false;
+            return;
         }
 
-        int needed = miningDuration(state, tool);
+        int needed = miningDuration(state, target, tool);
         if (requiredTicks != needed) {
             // The target changed under us (another miner, a player, a falling block).
             // Re-time rather than breaking a block we never spent the ticks on.
             requiredTicks = needed;
             elapsedTicks = 0;
-            return true;
+            return;
         }
 
         if (elapsedTicks < requiredTicks) {
             elapsedTicks++;
-            return true;
+            return;
         }
 
         mineBlock(level, target, state, tool);
         elapsedTicks = 0;
         requiredTicks = 0;
-        return true;
     }
 
     /**
@@ -217,7 +231,7 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
 
             while (currentY >= floor) {
                 BlockPos candidate = new BlockPos(column.getX(), currentY, column.getZ());
-                if (toolFor(level.getBlockState(candidate)) != ToolChoice.NONE) {
+                if (toolFor(level.getBlockState(candidate), candidate) != ToolChoice.NONE) {
                     return candidate;
                 }
                 currentY--;
@@ -230,12 +244,12 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
     }
 
     /** Decides which tool breaks this block, or NONE if the miner cannot handle it. */
-    private ToolChoice toolFor(BlockState state) {
+    private ToolChoice toolFor(BlockState state, BlockPos pos) {
         if (state.isAir()) {
             return ToolChoice.NONE;
         }
         // Never chew through bedrock or other unbreakable blocks.
-        if (state.getDestroySpeed(level, worldPosition) < 0) {
+        if (state.getDestroySpeed(level, pos) < 0) {
             return ToolChoice.NONE;
         }
         // Skip liquids; the original treated them as unmineable without a filler upgrade.
@@ -260,8 +274,8 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
      * Mirrors vanilla's break timing: hardness scaled to ticks, divided by the tool's dig
      * speed, with Efficiency applying the same 1.3x per level the original mod used.
      */
-    private int miningDuration(BlockState state, ToolChoice tool) {
-        int base = (int) Math.ceil(state.getDestroySpeed(level, worldPosition) * 1.5 * 20);
+    private int miningDuration(BlockState state, BlockPos pos, ToolChoice tool) {
+        int base = (int) Math.ceil(state.getDestroySpeed(level, pos) * 1.5 * 20);
         if (tool == ToolChoice.HAND) {
             return Math.max(base, 1);
         }
@@ -436,6 +450,7 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
                 case 1 -> burnTimeTotal;
                 case 2 -> elapsedTicks;
                 case 3 -> requiredTicks;
+                case 4 -> status.ordinal();
                 default -> 0;
             };
         }
@@ -447,13 +462,14 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
                 case 1 -> burnTimeTotal = value;
                 case 2 -> elapsedTicks = value;
                 case 3 -> requiredTicks = value;
+                case 4 -> status = MinerStatus.byOrdinal(value);
                 default -> {}
             }
         }
 
         @Override
         public int getCount() {
-            return 4;
+            return 5;
         }
     };
 

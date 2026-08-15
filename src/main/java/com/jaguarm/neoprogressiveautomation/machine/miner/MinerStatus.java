@@ -1,0 +1,33 @@
+package com.jaguarm.neoprogressiveautomation.machine.miner;
+
+import net.minecraft.network.chat.Component;
+
+/**
+ * Why the miner is or is not running, surfaced in the GUI.
+ *
+ * <p>The original mod gave no feedback at all when a machine sat idle, which made a
+ * missing shovel indistinguishable from a bug. Each constant maps to a translation key.
+ */
+public enum MinerStatus {
+    RUNNING("running"),
+    NO_FUEL("no_fuel"),
+    NO_PICKAXE("no_pickaxe"),
+    NO_SHOVEL("no_shovel"),
+    NO_COBBLE("no_cobble"),
+    COMPLETE("complete");
+
+    private final String key;
+
+    MinerStatus(String key) {
+        this.key = key;
+    }
+
+    public Component label() {
+        return Component.translatable("gui.neoprogressiveautomation.miner.status." + key);
+    }
+
+    public static MinerStatus byOrdinal(int ordinal) {
+        MinerStatus[] values = values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : RUNNING;
+    }
+}

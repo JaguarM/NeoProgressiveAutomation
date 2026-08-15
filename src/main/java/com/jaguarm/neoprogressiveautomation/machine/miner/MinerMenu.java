@@ -20,7 +20,7 @@ public class MinerMenu extends AbstractContainerMenu {
     /** Client-side constructor: the menu is opened with a stand-in container that the server syncs into. */
     public MinerMenu(int containerId, Inventory playerInventory) {
         this(containerId, playerInventory, new SimpleContainer(MinerBlockEntity.SLOT_COUNT),
-                new SimpleContainerData(4));
+                new SimpleContainerData(5));
     }
 
     public MinerMenu(int containerId, Inventory playerInventory, Container container, ContainerData data) {
@@ -70,6 +70,11 @@ public class MinerMenu extends AbstractContainerMenu {
 
     public boolean isBurning() {
         return data.get(0) > 0;
+    }
+
+    /** Why the machine is or is not running, for the status line in the screen. */
+    public MinerStatus status() {
+        return MinerStatus.byOrdinal(data.get(4));
     }
 
     /** Fraction of the current fuel item remaining, for the flame indicator. */

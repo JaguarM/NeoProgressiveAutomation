@@ -14,6 +14,11 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
     private static final Identifier BACKGROUND = Identifier.fromNamespaceAndPath(
             NeoProgressiveAutomation.MODID, "textures/gui/container/miner.png");
 
+    /** Dark grey, matching the vanilla container label colour. */
+    private static final int COLOUR_OK = -12566464;
+    /** Muted red, for a machine that is waiting on the player. */
+    private static final int COLOUR_BLOCKED = 0xFF9C2A2A;
+
     public MinerScreen(MinerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
     }
@@ -22,6 +27,17 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
     protected void init() {
         super.init();
         this.titleLabelX = (this.imageWidth - this.font.width(this.title)) / 2;
+    }
+
+    @Override
+    protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        super.extractLabels(graphics, mouseX, mouseY);
+
+        MinerStatus status = this.menu.status();
+        int colour = status == MinerStatus.RUNNING || status == MinerStatus.COMPLETE
+                ? COLOUR_OK
+                : COLOUR_BLOCKED;
+        graphics.text(this.font, status.label(), 8, 72, colour, false);
     }
 
     @Override
