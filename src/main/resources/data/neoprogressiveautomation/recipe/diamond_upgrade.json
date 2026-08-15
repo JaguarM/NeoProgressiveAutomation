@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "p": "minecraft:diamond",
+    "r": "minecraft:redstone"
+  },
+  "pattern": [ "ppp", "prp", "ppp" ],
+  "result": { "id": "neoprogressiveautomation:diamond_upgrade" }
+}

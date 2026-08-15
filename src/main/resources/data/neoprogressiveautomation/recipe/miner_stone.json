@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "s": "minecraft:stone",
+    "c": "neoprogressiveautomation:miner_wood",
+    "p": "minecraft:stone_pickaxe"
+  },
+  "pattern": [ "sss", "scs", "sps" ],
+  "result": { "id": "neoprogressiveautomation:miner_stone" }
+}

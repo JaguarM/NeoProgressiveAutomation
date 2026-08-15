@@ -1,7 +1,9 @@
 package com.jaguarm.neoprogressiveautomation.machine.miner;
 
+import com.jaguarm.neoprogressiveautomation.machine.MachineTier;
 import com.jaguarm.neoprogressiveautomation.registry.ModBlockEntities;
 import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.Containers;
@@ -17,14 +19,24 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 
 public class MinerBlock extends BaseEntityBlock {
 
-    public static final MapCodec<MinerBlock> CODEC = simpleCodec(MinerBlock::new);
+    public static final MapCodec<MinerBlock> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
+            MachineTier.CODEC.fieldOf("tier").forGetter(MinerBlock::tier),
+            propertiesCodec()
+    ).apply(instance, (tier, properties) -> new MinerBlock(properties, tier)));
 
     /** Lit while the machine has fuel burning, so the model can show an active face. */
     public static final BooleanProperty LIT = BlockStateProperties.LIT;
 
-    public MinerBlock(Properties properties) {
+    private final MachineTier tier;
+
+    public MinerBlock(Properties properties, MachineTier tier) {
         super(properties);
+        this.tier = tier;
         registerDefaultState(getStateDefinition().any().setValue(LIT, false));
+    }
+
+    public MachineTier tier() {
+        return tier;
     }
 
     @Override

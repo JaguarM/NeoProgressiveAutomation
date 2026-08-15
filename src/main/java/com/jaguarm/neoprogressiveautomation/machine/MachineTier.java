@@ -7,11 +7,14 @@ package com.jaguarm.neoprogressiveautomation.machine;
  * upgrades but rejects diamond ones. {@code maxRangeUpgrades} is how many range upgrades
  * fit in the upgrade slot at this tier.
  */
-public enum MachineTier {
+public enum MachineTier implements net.minecraft.util.StringRepresentable {
     WOOD("wood", 4),
     STONE("stone", 8),
     IRON("iron", 16),
     DIAMOND("diamond", 32);
+
+    public static final com.mojang.serialization.Codec<MachineTier> CODEC =
+            net.minecraft.util.StringRepresentable.fromEnum(MachineTier::values);
 
     private final String id;
     private final int maxRangeUpgrades;
@@ -29,8 +32,18 @@ public enum MachineTier {
         return maxRangeUpgrades;
     }
 
-    /** True if this machine can accept an upgrade built for {@code upgradeTier}. */
+    @Override
+    public String getSerializedName() {
+        return id;
+    }
+
+    /**
+     * True if this machine accepts a range upgrade built for {@code upgradeTier}.
+     *
+     * <p>Exact match, not "this tier or lower". A stone miner rejects wooden upgrades just
+     * as it rejects diamond ones, matching the original mod's per-tier upgrade types.
+     */
     public boolean accepts(MachineTier upgradeTier) {
-        return upgradeTier.ordinal() <= this.ordinal();
+        return upgradeTier == this;
     }
 }

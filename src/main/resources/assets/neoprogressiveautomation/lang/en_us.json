@@ -1,7 +1,24 @@
 {
   "itemGroup.neoprogressiveautomation": "Neo Progressive Automation",
-  "block.neoprogressiveautomation.miner": "Wooden Miner",
-  "container.neoprogressiveautomation.miner": "Wooden Miner",
+
+  "block.neoprogressiveautomation.miner_wood": "Wooden Miner",
+  "block.neoprogressiveautomation.miner_stone": "Stone Miner",
+  "block.neoprogressiveautomation.miner_iron": "Iron Miner",
+  "block.neoprogressiveautomation.miner_diamond": "Diamond Miner",
+
+  "item.neoprogressiveautomation.wood_upgrade": "Wooden Range Upgrade",
+  "item.neoprogressiveautomation.stone_upgrade": "Stone Range Upgrade",
+  "item.neoprogressiveautomation.iron_upgrade": "Iron Range Upgrade",
+  "item.neoprogressiveautomation.diamond_upgrade": "Diamond Range Upgrade",
+
+  "container.neoprogressiveautomation.miner": "Miner",
+
+  "tooltip.neoprogressiveautomation.upgrade.tier": "Fits %s machines",
+  "tooltip.neoprogressiveautomation.upgrade.max": "Up to %s per machine",
+  "tooltip.neoprogressiveautomation.tier.wood": "wooden",
+  "tooltip.neoprogressiveautomation.tier.stone": "stone",
+  "tooltip.neoprogressiveautomation.tier.iron": "iron",
+  "tooltip.neoprogressiveautomation.tier.diamond": "diamond",
 
   "gui.neoprogressiveautomation.miner.status.idle": "Idle",
   "gui.neoprogressiveautomation.miner.status.running": "Mining",
@@ -10,7 +27,6 @@
   "gui.neoprogressiveautomation.miner.status.no_shovel": "Needs a shovel",
   "gui.neoprogressiveautomation.miner.status.no_cobble": "Needs cobblestone",
   "gui.neoprogressiveautomation.miner.status.complete": "Area cleared",
-
 
   "neoprogressiveautomation.configuration.title": "Neo Progressive Automation Configs",
   "neoprogressiveautomation.configuration.section.neoprogressiveautomation.common.toml": "Neo Progressive Automation Configs",

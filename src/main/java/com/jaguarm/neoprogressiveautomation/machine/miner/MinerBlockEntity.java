@@ -6,6 +6,7 @@ import com.jaguarm.neoprogressiveautomation.Config;
 import com.jaguarm.neoprogressiveautomation.NeoProgressiveAutomation;
 import com.jaguarm.neoprogressiveautomation.machine.MachineTier;
 import com.jaguarm.neoprogressiveautomation.machine.Spiral;
+import com.jaguarm.neoprogressiveautomation.machine.UpgradeItem;
 import com.jaguarm.neoprogressiveautomation.registry.ModBlockEntities;
 
 import net.minecraft.core.BlockPos;
@@ -80,16 +81,10 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
     private MinerStatus status = MinerStatus.NO_PICKAXE;
 
     public MinerBlockEntity(BlockPos pos, BlockState state) {
-        this(ModBlockEntities.MINER.get(), pos, state, MachineTier.WOOD);
-    }
-
-    protected MinerBlockEntity(
-            net.minecraft.world.level.block.entity.BlockEntityType<?> type,
-            BlockPos pos,
-            BlockState state,
-            MachineTier tier) {
-        super(type, pos, state);
-        this.tier = tier;
+        super(ModBlockEntities.MINER.get(), pos, state);
+        // One block entity type backs all four miner blocks; the tier comes from whichever
+        // block this entity was placed for.
+        this.tier = state.getBlock() instanceof MinerBlock miner ? miner.tier() : MachineTier.WOOD;
     }
 
     public MachineTier tier() {
@@ -390,7 +385,12 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
 
     /** Radius in blocks, from the base config plus however many upgrades are installed. */
     public int range() {
-        int upgrades = Math.min(items.get(SLOT_UPGRADE).getCount(), tier.maxRangeUpgrades());
+        ItemStack upgradeStack = items.get(SLOT_UPGRADE);
+        // Guard the count: a mismatched upgrade should never widen the dig area, even if
+        // something bypassed canPlaceItem to get it into the slot.
+        int upgrades = tier.accepts(UpgradeItem.tierOf(upgradeStack))
+                ? Math.min(upgradeStack.getCount(), tier.maxRangeUpgrades())
+                : 0;
         return Config.INITIAL_RANGE.get() + upgrades * Config.UPGRADE_RANGE.get();
     }
 
@@ -450,7 +450,7 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
             case SLOT_COBBLE -> stack.is(Blocks.COBBLESTONE.asItem());
             case SLOT_PICKAXE -> stack.is(ItemTags.PICKAXES);
             case SLOT_SHOVEL -> stack.is(ItemTags.SHOVELS);
-            case SLOT_UPGRADE -> false; // no upgrade items exist yet
+            case SLOT_UPGRADE -> tier.accepts(UpgradeItem.tierOf(stack));
             default -> false; // output slots are extract-only
         };
     }
@@ -459,7 +459,8 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("container.neoprogressiveautomation.miner");
+        // Use the block's own name so the GUI title says "Stone Miner", not a generic label.
+        return getBlockState().getBlock().getName();
     }
 
     @Override

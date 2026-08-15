@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "s": "minecraft:diamond",
+    "c": "neoprogressiveautomation:miner_iron",
+    "p": "minecraft:diamond_pickaxe"
+  },
+  "pattern": [ "sss", "scs", "sps" ],
+  "result": { "id": "neoprogressiveautomation:miner_diamond" }
+}

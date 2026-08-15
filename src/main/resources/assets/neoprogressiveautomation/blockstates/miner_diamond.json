@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "lit=false": { "model": "neoprogressiveautomation:block/miner_diamond" },
+    "lit=true": { "model": "neoprogressiveautomation:block/miner_diamond_on" }
+  }
+}
