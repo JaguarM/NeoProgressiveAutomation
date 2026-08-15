@@ -51,6 +51,22 @@ public class MinerBlock extends BaseEntityBlock {
         return createTickerHelper(type, ModBlockEntities.MINER.get(), MinerBlockEntity::serverTick);
     }
 
+    @Override
+    protected net.minecraft.world.InteractionResult useWithoutItem(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            net.minecraft.world.entity.player.Player player,
+            net.minecraft.world.phys.BlockHitResult hitResult) {
+        if (!level.isClientSide()) {
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof MinerBlockEntity miner) {
+                player.openMenu(miner);
+            }
+        }
+        return net.minecraft.world.InteractionResult.SUCCESS;
+    }
+
     /** Spill the machine's contents when it is broken, so tools and ore are not lost. */
     @Override
     protected void affectNeighborsAfterRemoval(BlockState state, net.minecraft.server.level.ServerLevel level, BlockPos pos, boolean movedByPiston) {

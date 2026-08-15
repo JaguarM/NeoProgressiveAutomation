@@ -11,12 +11,19 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -37,7 +44,7 @@ import net.minecraft.world.level.storage.ValueOutput;
  * one cobblestone per block mined, which it uses to backfill the hole. Tools take
  * durability damage per block and respect Silk Touch, Fortune and Efficiency.
  */
-public class MinerBlockEntity extends BlockEntity {
+public class MinerBlockEntity extends BlockEntity implements Container, MenuProvider {
 
     public static final int SLOT_FUEL = 0;
     public static final int SLOT_COBBLE = 1;
@@ -346,6 +353,109 @@ public class MinerBlockEntity extends BlockEntity {
         int upgrades = Math.min(items.get(SLOT_UPGRADE).getCount(), tier.maxRangeUpgrades());
         return Config.INITIAL_RANGE.get() + upgrades * Config.UPGRADE_RANGE.get();
     }
+
+    // -- Container --------------------------------------------------------------
+
+    @Override
+    public int getContainerSize() {
+        return SLOT_COUNT;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return items.stream().allMatch(ItemStack::isEmpty);
+    }
+
+    @Override
+    public ItemStack getItem(int slot) {
+        return items.get(slot);
+    }
+
+    @Override
+    public ItemStack removeItem(int slot, int amount) {
+        ItemStack removed = ContainerHelper.removeItem(items, slot, amount);
+        if (!removed.isEmpty()) {
+            setChanged();
+        }
+        return removed;
+    }
+
+    @Override
+    public ItemStack removeItemNoUpdate(int slot) {
+        return ContainerHelper.takeItem(items, slot);
+    }
+
+    @Override
+    public void setItem(int slot, ItemStack stack) {
+        items.set(slot, stack);
+        stack.limitSize(getMaxStackSize(stack));
+        setChanged();
+    }
+
+    @Override
+    public boolean stillValid(Player player) {
+        return Container.stillValidBlockEntity(this, player);
+    }
+
+    @Override
+    public void clearContent() {
+        items.clear();
+    }
+
+    /** Keeps players from dropping a pickaxe into the fuel slot and wondering why nothing burns. */
+    @Override
+    public boolean canPlaceItem(int slot, ItemStack stack) {
+        return switch (slot) {
+            case SLOT_FUEL -> level != null && stack.getBurnTime(RecipeType.SMELTING, level.fuelValues()) > 0;
+            case SLOT_COBBLE -> stack.is(Blocks.COBBLESTONE.asItem());
+            case SLOT_PICKAXE -> stack.is(ItemTags.PICKAXES);
+            case SLOT_SHOVEL -> stack.is(ItemTags.SHOVELS);
+            case SLOT_UPGRADE -> false; // no upgrade items exist yet
+            default -> false; // output slots are extract-only
+        };
+    }
+
+    // -- MenuProvider -----------------------------------------------------------
+
+    @Override
+    public Component getDisplayName() {
+        return Component.translatable("container.neoprogressiveautomation.miner");
+    }
+
+    @Override
+    public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
+        return new MinerMenu(containerId, inventory, this, dataAccess);
+    }
+
+    /** Syncs burn progress to the client so the screen can draw a fuel indicator. */
+    private final ContainerData dataAccess = new ContainerData() {
+        @Override
+        public int get(int index) {
+            return switch (index) {
+                case 0 -> burnTime;
+                case 1 -> burnTimeTotal;
+                case 2 -> elapsedTicks;
+                case 3 -> requiredTicks;
+                default -> 0;
+            };
+        }
+
+        @Override
+        public void set(int index, int value) {
+            switch (index) {
+                case 0 -> burnTime = value;
+                case 1 -> burnTimeTotal = value;
+                case 2 -> elapsedTicks = value;
+                case 3 -> requiredTicks = value;
+                default -> {}
+            }
+        }
+
+        @Override
+        public int getCount() {
+            return 4;
+        }
+    };
 
     // -- Persistence ------------------------------------------------------------
 

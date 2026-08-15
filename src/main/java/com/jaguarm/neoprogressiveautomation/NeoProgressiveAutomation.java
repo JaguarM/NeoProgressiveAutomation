@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import com.jaguarm.neoprogressiveautomation.registry.ModBlockEntities;
 import com.jaguarm.neoprogressiveautomation.registry.ModBlocks;
 import com.jaguarm.neoprogressiveautomation.registry.ModItems;
+import com.jaguarm.neoprogressiveautomation.registry.ModMenus;
 import com.mojang.logging.LogUtils;
 
 import net.neoforged.bus.api.IEventBus;
@@ -24,6 +25,7 @@ public class NeoProgressiveAutomation {
         ModItems.ITEMS.register(modEventBus);
         ModItems.CREATIVE_MODE_TABS.register(modEventBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        ModMenus.MENUS.register(modEventBus);
 
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }

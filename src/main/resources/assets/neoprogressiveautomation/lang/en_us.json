@@ -1,6 +1,7 @@
 {
   "itemGroup.neoprogressiveautomation": "Neo Progressive Automation",
   "block.neoprogressiveautomation.miner": "Wooden Miner",
+  "container.neoprogressiveautomation.miner": "Wooden Miner",
 
   "neoprogressiveautomation.configuration.title": "Neo Progressive Automation Configs",
   "neoprogressiveautomation.configuration.section.neoprogressiveautomation.common.toml": "Neo Progressive Automation Configs",
