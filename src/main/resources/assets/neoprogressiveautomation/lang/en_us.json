@@ -1,13 +1,15 @@
 {
   "itemGroup.neoprogressiveautomation": "Neo Progressive Automation",
-  "block.neoprogressiveautomation.example_block": "Example Block",
-  "item.neoprogressiveautomation.example_item": "Example Item",
+  "block.neoprogressiveautomation.miner": "Wooden Miner",
 
   "neoprogressiveautomation.configuration.title": "Neo Progressive Automation Configs",
   "neoprogressiveautomation.configuration.section.neoprogressiveautomation.common.toml": "Neo Progressive Automation Configs",
   "neoprogressiveautomation.configuration.section.neoprogressiveautomation.common.toml.title": "Neo Progressive Automation Configs",
-  "neoprogressiveautomation.configuration.items": "Item List",
-  "neoprogressiveautomation.configuration.logDirtBlock": "Log Dirt Block",
-  "neoprogressiveautomation.configuration.magicNumberIntroduction": "Magic Number Text",
-  "neoprogressiveautomation.configuration.magicNumber": "Magic Number"
+  "neoprogressiveautomation.configuration.range": "Range",
+  "neoprogressiveautomation.configuration.initialRange": "Initial Range",
+  "neoprogressiveautomation.configuration.upgradeRange": "Range Per Upgrade",
+  "neoprogressiveautomation.configuration.miner": "Miner",
+  "neoprogressiveautomation.configuration.mineFloor": "Lowest Mining Level",
+  "neoprogressiveautomation.configuration.requireCobbleBackfill": "Backfill With Cobblestone",
+  "neoprogressiveautomation.configuration.destroyTools": "Destroy Worn-Out Tools"
 }
