@@ -28,6 +28,12 @@ sourceSets.main.resources {
 }
 
 repositories {
+    // Maven Central is declared first on purpose. The NeoForged mirror has intermittently
+    // served zero-byte POMs for third-party libraries (log4j, jackson) via its CDN, which
+    // Gradle reports as "Content is not allowed in prolog". Resolving these from Central
+    // first avoids that. See https://maven.neoforged.net/ vs https://repo1.maven.org/maven2/
+    mavenCentral()
+
     // Add here additional repositories if required by some of the dependencies below.
 }
 

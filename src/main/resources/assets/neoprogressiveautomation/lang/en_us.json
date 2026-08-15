@@ -1,0 +1,13 @@
+{
+  "itemGroup.neoprogressiveautomation": "Neo Progressive Automation",
+  "block.neoprogressiveautomation.example_block": "Example Block",
+  "item.neoprogressiveautomation.example_item": "Example Item",
+
+  "neoprogressiveautomation.configuration.title": "Neo Progressive Automation Configs",
+  "neoprogressiveautomation.configuration.section.neoprogressiveautomation.common.toml": "Neo Progressive Automation Configs",
+  "neoprogressiveautomation.configuration.section.neoprogressiveautomation.common.toml.title": "Neo Progressive Automation Configs",
+  "neoprogressiveautomation.configuration.items": "Item List",
+  "neoprogressiveautomation.configuration.logDirtBlock": "Log Dirt Block",
+  "neoprogressiveautomation.configuration.magicNumberIntroduction": "Magic Number Text",
+  "neoprogressiveautomation.configuration.magicNumber": "Magic Number"
+}

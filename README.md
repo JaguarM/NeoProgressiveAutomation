@@ -1,25 +1,62 @@
+Neo Progressive Automation
+==========================
 
-Installation information
-=======
+Low tech automation tools for common tasks — a ground-up reimplementation of
+[Progressive Automation](https://github.com/Vanhal/ProgressiveAutomation) for modern
+Minecraft and NeoForge.
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+| | |
+|---|---|
+| Minecraft | 26.1.2 |
+| NeoForge | 26.1.2.95 |
+| Java | 25 (Temurin recommended) |
+| Mod id | `neoprogressiveautomation` |
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+Building
+--------
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+```
+./gradlew build
+```
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
+The finished jar lands in `build/libs/`.
+
+Running in development
+----------------------
+
+```
+./gradlew runClient   # dev client, no Minecraft account needed
+./gradlew runServer   # dedicated server
+./gradlew runData     # regenerate datagen output into src/generated/resources
+```
+
+If your IDE is missing libraries or something looks stale, `./gradlew --refresh-dependencies`
+refreshes the local cache, and `./gradlew clean` resets build output without touching your code.
+
+Layout
+------
+
+```
+src/main/java/com/jaguarm/neoprogressiveautomation/   mod sources
+src/main/resources/assets/neoprogressiveautomation/   textures, models, lang
+src/main/templates/META-INF/neoforge.mods.toml        mod metadata (Gradle expands ${...} from gradle.properties)
+src/generated/resources/                              datagen output — do not hand-edit
+_OLD/                                                 the original 1.12.2 mod, kept as a design reference only
+```
+
+Note that `_OLD/` is **not** part of the build. It targets Minecraft 1.12.2 / Forge 14.23
+and none of its code compiles against modern NeoForge; it is retained for its game design,
+recipe balance (`_OLD/notes-on-recipes.txt`), and feature behaviour.
+
+Mapping names
+-------------
+
+This project uses the official Mojang mapping names for Minecraft methods and fields. These
+names are covered by a specific license that all modders should be aware of — see
 https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+Additional resources
+--------------------
+
+- Community documentation: https://docs.neoforged.net/
+- NeoForged Discord: https://discord.neoforged.net/
