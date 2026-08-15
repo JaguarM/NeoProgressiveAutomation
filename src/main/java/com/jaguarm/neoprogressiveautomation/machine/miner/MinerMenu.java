@@ -44,13 +44,15 @@ public class MinerMenu extends AbstractContainerMenu {
             }
         }
 
+        // Must match GenGui's layout: the panel is 184 tall, so the inventory sits at
+        // height-82 and the hotbar at height-24.
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(playerInventory, 9 + row * 9 + col, 8 + col * 18, 84 + row * 18));
+                addSlot(new Slot(playerInventory, 9 + row * 9 + col, 8 + col * 18, 102 + row * 18));
             }
         }
         for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(playerInventory, col, 8 + col * 18, 142));
+            addSlot(new Slot(playerInventory, col, 8 + col * 18, 160));
         }
 
         addDataSlots(data);

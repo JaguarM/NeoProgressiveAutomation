@@ -3,6 +3,7 @@
   "block.neoprogressiveautomation.miner": "Wooden Miner",
   "container.neoprogressiveautomation.miner": "Wooden Miner",
 
+  "gui.neoprogressiveautomation.miner.status.idle": "Idle",
   "gui.neoprogressiveautomation.miner.status.running": "Mining",
   "gui.neoprogressiveautomation.miner.status.no_fuel": "Needs fuel",
   "gui.neoprogressiveautomation.miner.status.no_pickaxe": "Needs a pickaxe",

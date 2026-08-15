@@ -19,8 +19,15 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
     /** Muted red, for a machine that is waiting on the player. */
     private static final int COLOUR_BLOCKED = 0xFF9C2A2A;
 
+    /** 18px taller than the vanilla 166, leaving a clear row for the status line. */
+    private static final int PANEL_WIDTH = 176;
+    private static final int PANEL_HEIGHT = 184;
+
     public MinerScreen(MinerMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
+        // Passing the size here rather than assigning afterwards: imageHeight is final, and
+        // this constructor also derives inventoryLabelY from it, so the "Inventory" label
+        // moves down with the panel instead of colliding with the status line.
+        super(menu, inventory, title, PANEL_WIDTH, PANEL_HEIGHT);
     }
 
     @Override
@@ -37,7 +44,7 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
         int colour = status == MinerStatus.RUNNING || status == MinerStatus.COMPLETE
                 ? COLOUR_OK
                 : COLOUR_BLOCKED;
-        graphics.text(this.font, status.label(), 8, 72, colour, false);
+        graphics.text(this.font, status.label(), 8, 73, colour, false);
     }
 
     @Override
