@@ -134,6 +134,9 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     /** Set when the search stopped on the budget rather than on running out of area. */
     private boolean scanBudgetExhausted;
 
+    /** Block currently showing our break overlay, so it can be cleared when we move on. */
+    private @Nullable BlockPos visualTarget;
+
     public MinerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.MINER.get(), pos, state);
         // One block entity type backs all four miner blocks; the tier comes from whichever
@@ -198,6 +201,12 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         }
 
         MinerStatus newStatus = runMining(level);
+        if (newStatus != MinerStatus.RUNNING) {
+            // Stopped for any reason: out of fuel, area finished, tool pulled. Drop the
+            // break overlay so a halted machine does not leave a half-cracked block behind
+            // suggesting it is still working.
+            clearWorkingOn(level);
+        }
         if (newStatus != status) {
             NeoProgressiveAutomation.LOGGER.debug(
                     "miner@{} status {} -> {} (column {}, y {})",
@@ -386,12 +395,54 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
         if (elapsedTicks < requiredTicks) {
             elapsedTicks++;
+            showWorkingOn(level, target, state);
+            MinerFeedback.chug(level, worldPosition, target, state, elapsedTicks);
             return;
         }
 
+        MinerFeedback.broke(level, worldPosition, target, state);
+        clearWorkingOn(level);
         mineBlock(level, target, state, tool);
         elapsedTicks = 0;
         requiredTicks = 0;
+    }
+
+    /**
+     * Draws break progress on the block currently being worked.
+     *
+     * <p>This is the single clearest signal that a miner is alive: without it the machine
+     * does nothing visible until a block silently vanishes. Reuses vanilla's crack overlay,
+     * so it works on any block including modded ones, and needs no model or texture.
+     */
+    private void showWorkingOn(ServerLevel level, BlockPos target, BlockState state) {
+        // Crumbling ore already carries its own crack overlay showing how worked-out it is.
+        // Two overlays on one block would fight, and the crumble state is the more useful
+        // of the two, so leave that block alone.
+        if (OreCrumbling.crumbles(state)) {
+            return;
+        }
+        if (!target.equals(visualTarget)) {
+            clearWorkingOn(level);
+            visualTarget = target.immutable();
+        }
+        int stage = requiredTicks <= 0 ? 0 : (int) ((long) elapsedTicks * 9 / requiredTicks);
+        level.destroyBlockProgress(breakerId(), target, Math.clamp(stage, 0, 9));
+    }
+
+    private void clearWorkingOn(ServerLevel level) {
+        if (visualTarget != null) {
+            level.destroyBlockProgress(breakerId(), visualTarget, -1);
+            visualTarget = null;
+        }
+    }
+
+    /**
+     * A stable id derived from the machine's position, so two miners working nearby do not
+     * overwrite each other's progress display, and so it cannot collide with a player's own
+     * break animation.
+     */
+    private int breakerId() {
+        return 2_000_000 + (worldPosition.hashCode() & 0x00FF_FFFF);
     }
 
     /**
