@@ -9,7 +9,10 @@ import com.jaguarm.neoprogressiveautomation.machine.Spiral;
 import com.jaguarm.neoprogressiveautomation.machine.UpgradeItem;
 import com.jaguarm.neoprogressiveautomation.registry.ModBlockEntities;
 
+import org.jspecify.annotations.Nullable;
+
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.Registries;
@@ -21,6 +24,7 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -46,7 +50,7 @@ import net.minecraft.world.level.storage.ValueOutput;
  * one cobblestone per block mined, which it uses to backfill the hole. Tools take
  * durability damage per block and respect Silk Touch, Fortune and Efficiency.
  */
-public class MinerBlockEntity extends BlockEntity implements Container, MenuProvider {
+public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, MenuProvider {
 
     public static final int SLOT_FUEL = 0;
     public static final int SLOT_COBBLE = 1;
@@ -453,6 +457,37 @@ public class MinerBlockEntity extends BlockEntity implements Container, MenuProv
             case SLOT_UPGRADE -> tier.accepts(UpgradeItem.tierOf(stack));
             default -> false; // output slots are extract-only
         };
+    }
+
+    // -- Automation faces -------------------------------------------------------
+
+    private static final int[] OUTPUT_SLOTS_BY_INDEX =
+            java.util.stream.IntStream.range(SLOT_OUTPUT_START, SLOT_COUNT).toArray();
+    private static final int[] INPUT_SLOTS_BY_INDEX =
+            {SLOT_FUEL, SLOT_COBBLE, SLOT_PICKAXE, SLOT_SHOVEL, SLOT_UPGRADE};
+
+    /**
+     * A hopper underneath should drain the mined output, not steal the fuel.
+     *
+     * <p>Without this, automation sees a flat 14-slot container and works left to right
+     * from slot 0, which is the fuel slot. Exposing only the output grid downward and only
+     * the input slots elsewhere makes the obvious setup behave the way it looks.
+     */
+    @Override
+    public int[] getSlotsForFace(Direction direction) {
+        return direction == Direction.DOWN ? OUTPUT_SLOTS_BY_INDEX : INPUT_SLOTS_BY_INDEX;
+    }
+
+    @Override
+    public boolean canPlaceItemThroughFace(int slot, ItemStack stack, @Nullable Direction direction) {
+        return canPlaceItem(slot, stack);
+    }
+
+    @Override
+    public boolean canTakeItemThroughFace(int slot, ItemStack stack, Direction direction) {
+        // Only finished product leaves the machine. Fuel, cobble and tools stay put,
+        // otherwise a hopper would strip the pickaxe straight back out again.
+        return slot >= SLOT_OUTPUT_START;
     }
 
     // -- MenuProvider -----------------------------------------------------------
