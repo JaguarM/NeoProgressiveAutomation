@@ -5,8 +5,9 @@ import java.util.List;
 import com.jaguarm.neoprogressiveautomation.Config;
 import com.jaguarm.neoprogressiveautomation.NeoProgressiveAutomation;
 import com.jaguarm.neoprogressiveautomation.machine.MachineTier;
+import com.jaguarm.neoprogressiveautomation.machine.ModuleItem;
+import com.jaguarm.neoprogressiveautomation.machine.ModuleType;
 import com.jaguarm.neoprogressiveautomation.machine.Spiral;
-import com.jaguarm.neoprogressiveautomation.machine.UpgradeItem;
 import com.jaguarm.neoprogressiveautomation.registry.ModBlockEntities;
 
 import org.jspecify.annotations.Nullable;
@@ -41,6 +42,10 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 
 /**
  * The miner digs a square spiral of columns centred on itself, each column running from
@@ -56,8 +61,10 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     public static final int SLOT_COBBLE = 1;
     public static final int SLOT_PICKAXE = 2;
     public static final int SLOT_SHOVEL = 3;
-    public static final int SLOT_UPGRADE = 4;
-    public static final int SLOT_OUTPUT_START = 5;
+    /** Module slots are always allocated; the tier decides how many are unlocked. */
+    public static final int SLOT_MODULE_START = 4;
+    public static final int MODULE_SLOTS = MachineTier.MAX_MODULE_SLOTS;
+    public static final int SLOT_OUTPUT_START = SLOT_MODULE_START + MODULE_SLOTS;
     public static final int OUTPUT_SLOTS = 9;
     public static final int SLOT_COUNT = SLOT_OUTPUT_START + OUTPUT_SLOTS;
 
@@ -83,6 +90,9 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     private int elapsedTicks;
     private int requiredTicks;
     private MinerStatus status = MinerStatus.NO_PICKAXE;
+
+    /** How often the miner scans its neighbours to push output. */
+    private static final int PUSH_INTERVAL_TICKS = 20;
 
     public MinerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.MINER.get(), pos, state);
@@ -133,11 +143,80 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
             changed = true;
         }
 
+        if (pushOutput(level)) {
+            changed = true;
+        }
+
         syncLitState(level);
 
         if (changed) {
             setChanged();
         }
+    }
+
+    /**
+     * Pushes mined items into any adjacent inventory, so a chest beside the miner is
+     * enough and no hopper is needed.
+     *
+     * <p>Throttled rather than run every tick: a full scan of six neighbours 20 times a
+     * second is wasted work when the machine produces a block every few seconds at best.
+     *
+     * @return true if anything moved
+     */
+    private boolean pushOutput(ServerLevel level) {
+        if (level.getGameTime() % PUSH_INTERVAL_TICKS != 0) {
+            return false;
+        }
+
+        boolean moved = false;
+        for (Direction direction : Direction.values()) {
+            if (isOutputEmpty()) {
+                break;
+            }
+            ResourceHandler<ItemResource> target = level.getCapability(
+                    Capabilities.Item.BLOCK,
+                    worldPosition.relative(direction),
+                    direction.getOpposite());
+            if (target == null) {
+                continue;
+            }
+            moved |= pushInto(target);
+        }
+        return moved;
+    }
+
+    private boolean pushInto(ResourceHandler<ItemResource> target) {
+        boolean moved = false;
+        for (int slot = SLOT_OUTPUT_START; slot < SLOT_COUNT; slot++) {
+            ItemStack stack = items.get(slot);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            // Transactional insert: nothing leaves this machine unless the destination
+            // actually took it, so a full chest cannot void the stack.
+            try (Transaction transaction = Transaction.openRoot()) {
+                int inserted = target.insert(ItemResource.of(stack), stack.getCount(), transaction);
+                if (inserted <= 0) {
+                    continue;
+                }
+                transaction.commit();
+                stack.shrink(inserted);
+                if (stack.isEmpty()) {
+                    items.set(slot, ItemStack.EMPTY);
+                }
+                moved = true;
+            }
+        }
+        return moved;
+    }
+
+    private boolean isOutputEmpty() {
+        for (int slot = SLOT_OUTPUT_START; slot < SLOT_COUNT; slot++) {
+            if (!items.get(slot).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -208,8 +287,9 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         if (itemBurnTime <= 0) {
             return false;
         }
-        burnTime = itemBurnTime;
-        burnTimeTotal = itemBurnTime;
+        int scaled = scaledBurnTime(itemBurnTime);
+        burnTime = scaled;
+        burnTimeTotal = scaled;
         fuel.shrink(1);
         return true;
     }
@@ -302,20 +382,20 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     private int miningDuration(BlockState state, BlockPos pos, ToolChoice tool) {
         int base = (int) Math.ceil(state.getDestroySpeed(level, pos) * 1.5 * 20);
         if (tool == ToolChoice.HAND) {
-            return Math.max(base, 1);
+            return Math.max(Math.round(base * miningTimeFactor()), 1);
         }
 
         ItemStack toolStack = items.get(slotFor(tool));
         float speed = toolStack.getDestroySpeed(state);
         if (speed <= 1.0f) {
-            return Math.max(base, 1);
+            return Math.max(Math.round(base * miningTimeFactor()), 1);
         }
 
         int efficiency = enchantmentLevel(toolStack, Enchantments.EFFICIENCY);
         for (int i = 0; i < efficiency; i++) {
             speed *= 1.3f;
         }
-        return Math.max((int) Math.ceil(base / speed), 1);
+        return Math.max((int) Math.ceil(base / speed * miningTimeFactor()), 1);
     }
 
     private void mineBlock(ServerLevel level, BlockPos target, BlockState state, ToolChoice tool) {
@@ -387,15 +467,54 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         return tool == ToolChoice.PICKAXE ? SLOT_PICKAXE : SLOT_SHOVEL;
     }
 
-    /** Radius in blocks, from the base config plus however many upgrades are installed. */
+    /**
+     * How many modules of a type are installed in unlocked slots.
+     *
+     * <p>Counts stack sizes, not slots, and always re-checks that the slot is unlocked, so
+     * a module that reached a locked slot by some route other than canPlaceItem still has
+     * no effect.
+     */
+    private int moduleCount(ModuleType type) {
+        int count = 0;
+        for (int i = 0; i < MODULE_SLOTS; i++) {
+            if (!tier.hasModuleSlot(i)) {
+                continue;
+            }
+            ItemStack stack = items.get(SLOT_MODULE_START + i);
+            if (ModuleItem.typeOf(stack) == type) {
+                count += stack.getCount();
+            }
+        }
+        return count;
+    }
+
+    /** Radius in blocks: the configured base, widened by range modules. */
     public int range() {
-        ItemStack upgradeStack = items.get(SLOT_UPGRADE);
-        // Guard the count: a mismatched upgrade should never widen the dig area, even if
-        // something bypassed canPlaceItem to get it into the slot.
-        int upgrades = tier.accepts(UpgradeItem.tierOf(upgradeStack))
-                ? Math.min(upgradeStack.getCount(), tier.maxRangeUpgrades())
-                : 0;
-        return Config.INITIAL_RANGE.get() + upgrades * Config.UPGRADE_RANGE.get();
+        int bonus = moduleCount(ModuleType.RANGE) * ModuleType.RANGE.bonusRadius();
+        return Config.INITIAL_RANGE.get() + bonus * Config.UPGRADE_RANGE.get();
+    }
+
+    /** Compounded module factor, e.g. 0.8^n for n speed modules. */
+    private float moduleFactor(ModuleType type, boolean forFuel) {
+        float per = forFuel ? type.fuelUseFactor() : type.miningTimeFactor();
+        return (float) Math.pow(per, moduleCount(type));
+    }
+
+    /** Mining time multiplier from speed and efficiency modules combined. */
+    private float miningTimeFactor() {
+        return moduleFactor(ModuleType.SPEED, false) * moduleFactor(ModuleType.EFFICIENCY, false);
+    }
+
+    /**
+     * How long one fuel item lasts, after modules.
+     *
+     * <p>Scaled here rather than by draining more per tick: burn time is an int, and
+     * rounding a 1.4x drain back to 1 would silently discard the whole speed-module
+     * penalty. Dividing the item's burn time keeps the trade-off exact.
+     */
+    private int scaledBurnTime(int itemBurnTime) {
+        float factor = moduleFactor(ModuleType.SPEED, true) * moduleFactor(ModuleType.EFFICIENCY, true);
+        return Math.max(1, Math.round(itemBurnTime / factor));
     }
 
     // -- Container --------------------------------------------------------------
@@ -449,13 +568,34 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     /** Keeps players from dropping a pickaxe into the fuel slot and wondering why nothing burns. */
     @Override
     public boolean canPlaceItem(int slot, ItemStack stack) {
+        return acceptsInSlot(slot, stack, level, tier.moduleSlots());
+    }
+
+    /**
+     * Whether a slot accepts a stack, as a pure function of the stack.
+     *
+     * <p>Static and container-independent on purpose. The client's menu is backed by a
+     * plain SimpleContainer, which accepts anything, so a rule that consulted the container
+     * would say "yes" on the client and "no" on the server. Shift-clicking then visibly
+     * dropped the item into the first slot for a frame before the server corrected it.
+     * Both sides now evaluate the same rule and agree immediately.
+     *
+     * @param unlockedModuleSlots how many module slots the machine's tier allows; the
+     *                            client reads this from synced container data
+     */
+    public static boolean acceptsInSlot(int slot, ItemStack stack, @Nullable Level level, int unlockedModuleSlots) {
         return switch (slot) {
             case SLOT_FUEL -> level != null && stack.getBurnTime(RecipeType.SMELTING, level.fuelValues()) > 0;
             case SLOT_COBBLE -> stack.is(Blocks.COBBLESTONE.asItem());
             case SLOT_PICKAXE -> stack.is(ItemTags.PICKAXES);
             case SLOT_SHOVEL -> stack.is(ItemTags.SHOVELS);
-            case SLOT_UPGRADE -> tier.accepts(UpgradeItem.tierOf(stack));
-            default -> false; // output slots are extract-only
+            default -> {
+                int moduleIndex = slot - SLOT_MODULE_START;
+                yield moduleIndex >= 0
+                        && moduleIndex < MODULE_SLOTS
+                        && moduleIndex < unlockedModuleSlots
+                        && ModuleItem.typeOf(stack) != null;
+            }
         };
     }
 
@@ -463,8 +603,11 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
     private static final int[] OUTPUT_SLOTS_BY_INDEX =
             java.util.stream.IntStream.range(SLOT_OUTPUT_START, SLOT_COUNT).toArray();
-    private static final int[] INPUT_SLOTS_BY_INDEX =
-            {SLOT_FUEL, SLOT_COBBLE, SLOT_PICKAXE, SLOT_SHOVEL, SLOT_UPGRADE};
+    private static final int[] INPUT_SLOTS_BY_INDEX = java.util.stream.IntStream
+            .concat(
+                    java.util.stream.IntStream.of(SLOT_FUEL, SLOT_COBBLE, SLOT_PICKAXE, SLOT_SHOVEL),
+                    java.util.stream.IntStream.range(SLOT_MODULE_START, SLOT_OUTPUT_START))
+            .toArray();
 
     /**
      * A hopper underneath should drain the mined output, not steal the fuel.
@@ -513,6 +656,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
                 case 2 -> elapsedTicks;
                 case 3 -> requiredTicks;
                 case 4 -> status.ordinal();
+                case 5 -> tier.moduleSlots();
                 default -> 0;
             };
         }
@@ -525,13 +669,14 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
                 case 2 -> elapsedTicks = value;
                 case 3 -> requiredTicks = value;
                 case 4 -> status = MinerStatus.byOrdinal(value);
+                // index 5 (module slot count) is derived from the block, never assigned
                 default -> {}
             }
         }
 
         @Override
         public int getCount() {
-            return 5;
+            return 6;
         }
     };
 

@@ -19,6 +19,13 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
     /** Muted red, for a machine that is waiting on the player. */
     private static final int COLOUR_BLOCKED = 0xFF9C2A2A;
 
+    /** Semi-transparent black over module slots this tier cannot use. */
+    private static final int LOCKED_SLOT_OVERLAY = 0xA0101010;
+
+    /** Must match MinerMenu's module slot placement. */
+    private static final int MODULE_SLOT_X = 44;
+    private static final int MODULE_SLOT_Y = 53;
+
     /** 18px taller than the vanilla 166, leaving a clear row for the status line. */
     private static final int PANEL_WIDTH = 176;
     private static final int PANEL_HEIGHT = 184;
@@ -59,5 +66,25 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
                 0.0F, 0.0F,
                 this.imageWidth, this.imageHeight,
                 256, 256);
+
+        shadeLockedModuleSlots(graphics, x, y);
+    }
+
+    /**
+     * Darkens module slots this tier has not unlocked.
+     *
+     * <p>Every miner draws all three slots so the layout is stable across tiers, but a
+     * wooden miner unlocks none of them. Without shading those read as ordinary empty
+     * slots that silently refuse everything.
+     */
+    private void shadeLockedModuleSlots(GuiGraphicsExtractor graphics, int originX, int originY) {
+        for (int i = 0; i < MinerBlockEntity.MODULE_SLOTS; i++) {
+            if (this.menu.isModuleSlotUnlocked(i)) {
+                continue;
+            }
+            int slotX = originX + MODULE_SLOT_X + i * 18;
+            int slotY = originY + MODULE_SLOT_Y;
+            graphics.fill(slotX, slotY, slotX + 16, slotY + 16, LOCKED_SLOT_OVERLAY);
+        }
     }
 }

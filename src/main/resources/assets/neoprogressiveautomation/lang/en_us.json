@@ -6,19 +6,16 @@
   "block.neoprogressiveautomation.miner_iron": "Iron Miner",
   "block.neoprogressiveautomation.miner_diamond": "Diamond Miner",
 
-  "item.neoprogressiveautomation.wood_upgrade": "Wooden Range Upgrade",
-  "item.neoprogressiveautomation.stone_upgrade": "Stone Range Upgrade",
-  "item.neoprogressiveautomation.iron_upgrade": "Iron Range Upgrade",
-  "item.neoprogressiveautomation.diamond_upgrade": "Diamond Range Upgrade",
+  "item.neoprogressiveautomation.speed_module": "Speed Module",
+  "item.neoprogressiveautomation.efficiency_module": "Efficiency Module",
+  "item.neoprogressiveautomation.range_module": "Range Module",
 
   "container.neoprogressiveautomation.miner": "Miner",
 
-  "tooltip.neoprogressiveautomation.upgrade.tier": "Fits %s machines",
-  "tooltip.neoprogressiveautomation.upgrade.max": "Up to %s per machine",
-  "tooltip.neoprogressiveautomation.tier.wood": "wooden",
-  "tooltip.neoprogressiveautomation.tier.stone": "stone",
-  "tooltip.neoprogressiveautomation.tier.iron": "iron",
-  "tooltip.neoprogressiveautomation.tier.diamond": "diamond",
+  "tooltip.neoprogressiveautomation.module.speed": "Mines faster, burns fuel faster",
+  "tooltip.neoprogressiveautomation.module.efficiency": "Burns less fuel, mines slower",
+  "tooltip.neoprogressiveautomation.module.range": "Widens the mining area",
+  "tooltip.neoprogressiveautomation.module.slots": "Fits any machine with a free module slot",
 
   "gui.neoprogressiveautomation.miner.status.idle": "Idle",
   "gui.neoprogressiveautomation.miner.status.running": "Mining",

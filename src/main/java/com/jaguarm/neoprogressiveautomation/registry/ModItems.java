@@ -5,7 +5,8 @@ import java.util.Map;
 
 import com.jaguarm.neoprogressiveautomation.NeoProgressiveAutomation;
 import com.jaguarm.neoprogressiveautomation.machine.MachineTier;
-import com.jaguarm.neoprogressiveautomation.machine.UpgradeItem;
+import com.jaguarm.neoprogressiveautomation.machine.ModuleItem;
+import com.jaguarm.neoprogressiveautomation.machine.ModuleType;
 import com.jaguarm.neoprogressiveautomation.machine.miner.MinerBlock;
 
 import net.minecraft.core.registries.Registries;
@@ -26,19 +27,20 @@ public final class ModItems {
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, NeoProgressiveAutomation.MODID);
 
-    /** Block items for each miner tier, keyed by tier so the creative tab can order them. */
+    /** Block items for each miner tier, in progression order. */
     public static final Map<MachineTier, DeferredItem<BlockItem>> MINERS = new LinkedHashMap<>();
 
-    /** One range upgrade per tier. A machine only accepts the upgrade matching its own tier. */
-    public static final Map<MachineTier, DeferredItem<UpgradeItem>> RANGE_UPGRADES = new LinkedHashMap<>();
+    /** Modules are universal: one item per type, valid in any machine that has a free slot. */
+    public static final Map<ModuleType, DeferredItem<ModuleItem>> MODULES = new LinkedHashMap<>();
 
     static {
         for (DeferredBlock<MinerBlock> block : ModBlocks.MINERS) {
-            MachineTier tier = tierOf(block);
-            MINERS.put(tier, ITEMS.registerSimpleBlockItem(block));
-            RANGE_UPGRADES.put(tier, ITEMS.registerItem(
-                    tier.id() + "_upgrade",
-                    properties -> new UpgradeItem(properties, tier)));
+            MINERS.put(tierOf(block), ITEMS.registerSimpleBlockItem(block));
+        }
+        for (ModuleType type : ModuleType.values()) {
+            MODULES.put(type, ITEMS.registerItem(
+                    type.id() + "_module",
+                    properties -> new ModuleItem(properties, type)));
         }
     }
 
@@ -49,13 +51,13 @@ public final class ModItems {
                     .icon(() -> MINERS.get(MachineTier.WOOD).get().getDefaultInstance())
                     .displayItems((parameters, output) -> {
                         MINERS.values().forEach(item -> output.accept(item.get()));
-                        RANGE_UPGRADES.values().forEach(item -> output.accept(item.get()));
+                        MODULES.values().forEach(item -> output.accept(item.get()));
                     })
                     .build());
 
     /**
-     * The tier a miner block was registered for. Read from the registry name rather than
-     * the block instance, because block suppliers cannot be resolved during registration.
+     * The tier a miner block was registered for, read from its registry name. Block
+     * suppliers cannot be resolved during registration, so the name is the only handle.
      */
     private static MachineTier tierOf(DeferredBlock<MinerBlock> block) {
         String path = block.getId().getPath();

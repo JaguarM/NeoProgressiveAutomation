@@ -14,13 +14,18 @@ import net.minecraft.world.item.ItemStack;
 
 public class MinerMenu extends AbstractContainerMenu {
 
+    /** Cobble, fuel, pickaxe, shovel, then the module slots. */
+    private static final int MACHINE_MENU_SLOTS = 4 + MinerBlockEntity.MODULE_SLOTS;
+
     private final Container container;
     private final ContainerData data;
+    /** Needed to resolve fuel burn times; present on both client and server. */
+    private final net.minecraft.world.level.Level level;
 
     /** Client-side constructor: the menu is opened with a stand-in container that the server syncs into. */
     public MinerMenu(int containerId, Inventory playerInventory) {
         this(containerId, playerInventory, new SimpleContainer(MinerBlockEntity.SLOT_COUNT),
-                new SimpleContainerData(5));
+                new SimpleContainerData(6));
     }
 
     public MinerMenu(int containerId, Inventory playerInventory, Container container, ContainerData data) {
@@ -28,13 +33,20 @@ public class MinerMenu extends AbstractContainerMenu {
         checkContainerSize(container, MinerBlockEntity.SLOT_COUNT);
         this.container = container;
         this.data = data;
+        this.level = playerInventory.player.level();
 
-        // Machine slots. Positions mirror the generated GUI texture.
-        addSlot(new Slot(container, MinerBlockEntity.SLOT_COBBLE, 8, 17));
-        addSlot(new Slot(container, MinerBlockEntity.SLOT_FUEL, 8, 53));
-        addSlot(new Slot(container, MinerBlockEntity.SLOT_PICKAXE, 44, 17));
-        addSlot(new Slot(container, MinerBlockEntity.SLOT_SHOVEL, 44, 35));
-        addSlot(new Slot(container, MinerBlockEntity.SLOT_UPGRADE, 44, 53));
+        // Machine slots. Positions mirror the generated GUI texture. Every one uses the
+        // same shared rule as the block entity so client and server never disagree.
+        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_COBBLE, 8, 17));
+        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_FUEL, 8, 53));
+        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_PICKAXE, 44, 17));
+        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_SHOVEL, 44, 35));
+
+        // Module slots always exist so the container size is fixed across tiers; locked
+        // ones simply reject everything.
+        for (int i = 0; i < MinerBlockEntity.MODULE_SLOTS; i++) {
+            addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_MODULE_START + i, 44 + i * 18, 53));
+        }
 
         // Output grid is extract-only.
         for (int row = 0; row < 3; row++) {
@@ -68,6 +80,32 @@ public class MinerMenu extends AbstractContainerMenu {
         public boolean mayPlace(ItemStack stack) {
             return false;
         }
+    }
+
+    /**
+     * A machine slot whose acceptance comes from the shared static rule rather than from
+     * the container, so it behaves identically on both sides and shift-click lands the
+     * item in the right slot on the first frame.
+     */
+    private class RuleSlot extends Slot {
+        RuleSlot(Container container, int index, int x, int y) {
+            super(container, index, x, y);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return MinerBlockEntity.acceptsInSlot(getContainerSlot(), stack, level, unlockedModuleSlots());
+        }
+    }
+
+    /** True if this module slot is usable at the machine's tier, for shading in the screen. */
+    public boolean isModuleSlotUnlocked(int moduleIndex) {
+        return data.get(5) > moduleIndex;
+    }
+
+    /** How many module slots this machine's tier unlocks. */
+    public int unlockedModuleSlots() {
+        return data.get(5);
     }
 
     public boolean isBurning() {
@@ -128,32 +166,24 @@ public class MinerMenu extends AbstractContainerMenu {
      * goes to the cobble slot and coal to the fuel slot without the player aiming.
      */
     private boolean moveIntoMachine(ItemStack stack) {
-        int[] candidates = {
-            MinerBlockEntity.SLOT_COBBLE,
-            MinerBlockEntity.SLOT_FUEL,
-            MinerBlockEntity.SLOT_PICKAXE,
-            MinerBlockEntity.SLOT_SHOVEL,
-            MinerBlockEntity.SLOT_UPGRADE
-        };
-        for (int slotIndex : candidates) {
-            if (container.canPlaceItem(slotIndex, stack)) {
-                // The machine slots are added in this same order, so the menu index matches.
-                int menuIndex = menuIndexOf(slotIndex);
-                if (moveItemStackTo(stack, menuIndex, menuIndex + 1, false)) {
-                    return true;
-                }
+        // Menu index -> container slot, in the order the machine slots were added above.
+        int[] containerSlots = new int[MACHINE_MENU_SLOTS];
+        containerSlots[0] = MinerBlockEntity.SLOT_COBBLE;
+        containerSlots[1] = MinerBlockEntity.SLOT_FUEL;
+        containerSlots[2] = MinerBlockEntity.SLOT_PICKAXE;
+        containerSlots[3] = MinerBlockEntity.SLOT_SHOVEL;
+        for (int i = 0; i < MinerBlockEntity.MODULE_SLOTS; i++) {
+            containerSlots[4 + i] = MinerBlockEntity.SLOT_MODULE_START + i;
+        }
+
+        for (int menuIndex = 0; menuIndex < containerSlots.length; menuIndex++) {
+            // Ask the slot, not the container: the slot uses the shared rule, so this
+            // picks the same destination on client and server.
+            if (slots.get(menuIndex).mayPlace(stack)
+                    && moveItemStackTo(stack, menuIndex, menuIndex + 1, false)) {
+                return true;
             }
         }
         return false;
-    }
-
-    private static int menuIndexOf(int containerSlot) {
-        return switch (containerSlot) {
-            case MinerBlockEntity.SLOT_COBBLE -> 0;
-            case MinerBlockEntity.SLOT_FUEL -> 1;
-            case MinerBlockEntity.SLOT_PICKAXE -> 2;
-            case MinerBlockEntity.SLOT_SHOVEL -> 3;
-            default -> 4;
-        };
     }
 }
