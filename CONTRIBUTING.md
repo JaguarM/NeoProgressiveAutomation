@@ -52,6 +52,7 @@ what compiles; the docs tell you what is idiomatic. Check both.
 | `data/<ns>/recipes/`, `loot_tables/` | **singular**: `recipe/`, `loot_table/` |
 | recipe `result.item` | `result.id` |
 | item models in `models/item/` only | also needs an `assets/<ns>/items/<name>.json` entry |
+| mods.toml `logoFile` | `iconFile` (square) and/or `bannerFile` (wide); `logoFile` still works but warns |
 
 Two that fail **silently** rather than at compile time, so watch for them:
 
