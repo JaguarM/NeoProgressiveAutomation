@@ -18,17 +18,17 @@ public enum MachineTier implements StringRepresentable {
      * whatever is in front of it and floods you with stone. Crude on purpose: it is the
      * thing you want to replace.
      */
-    BURNER("burner_drill", 0, false),
+    BURNER("burner_drill", 1, false),
 
     /**
      * The drill you graduate to. Runs on FE and takes three modules, which is where every
      * choice in the mod lives: speed against fuel cost, or a filter that leaves the
      * terrain alone. The step up is infrastructure, not just a bigger recipe.
      */
-    ELECTRIC("electric_drill", 3, true);
+    ELECTRIC("electric_drill", 4, true);
 
-    /** Every drill reserves this many module slots; the burner simply unlocks none. */
-    public static final int MAX_MODULE_SLOTS = 3;
+    /** Every drill reserves this many module slots; the burner unlocks only the first. */
+    public static final int MAX_MODULE_SLOTS = 4;
 
     public static final Codec<MachineTier> CODEC = StringRepresentable.fromEnum(MachineTier::values);
 

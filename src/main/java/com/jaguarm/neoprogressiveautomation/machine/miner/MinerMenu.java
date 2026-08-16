@@ -28,7 +28,7 @@ public class MinerMenu extends AbstractContainerMenu {
     /** Client-side constructor: a stand-in container the server syncs into, plus the machine's position. */
     public MinerMenu(int containerId, Inventory playerInventory, BlockPos machinePos) {
         this(containerId, playerInventory, new SimpleContainer(MinerBlockEntity.SLOT_COUNT),
-                new SimpleContainerData(10), machinePos);
+                new SimpleContainerData(12), machinePos);
     }
 
     public MinerMenu(int containerId, Inventory playerInventory, Container container, ContainerData data,
@@ -99,8 +99,8 @@ public class MinerMenu extends AbstractContainerMenu {
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            return MinerBlockEntity.acceptsInSlot(
-                    getContainerSlot(), stack, level, unlockedModuleSlots(), isElectric());
+            return MinerBlockEntity.acceptsInSlot(getContainerSlot(), stack, level,
+                    new MinerBlockEntity.SlotRules(unlockedModuleSlots(), isElectric(), needsFill()));
         }
 
         @Override
@@ -141,6 +141,32 @@ public class MinerMenu extends AbstractContainerMenu {
     /** True if this machine runs on FE rather than solid fuel. */
     public boolean isElectric() {
         return data.get(7) != 0;
+    }
+
+    /** True if the current mode fills its holes, so the fill slot is actually used. */
+    public boolean needsFill() {
+        return data.get(10) != 0;
+    }
+
+    public DigMode digMode() {
+        return DigMode.byOrdinal(data.get(11));
+    }
+
+    /** Button id for the dig-mode cycle, sent by the screen. */
+    public static final int BUTTON_CYCLE_DIG_MODE = 0;
+
+    /**
+     * Handles the screen's button. Uses vanilla's menu-button channel rather than a custom
+     * packet: the server already validates that this player has this menu open, which is
+     * the check that matters.
+     */
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        if (id == BUTTON_CYCLE_DIG_MODE && container instanceof MinerBlockEntity miner) {
+            miner.cycleDigMode();
+            return true;
+        }
+        return false;
     }
 
     /** Charge level from 0 to 1, for the energy bar. */

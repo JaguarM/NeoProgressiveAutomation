@@ -2,7 +2,11 @@ package com.jaguarm.neoprogressiveautomation.machine.miner;
 
 import com.jaguarm.neoprogressiveautomation.NeoProgressiveAutomation;
 
+import org.jspecify.annotations.Nullable;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
@@ -26,6 +30,12 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
     private static final int MODULE_SLOT_X = 44;
     private static final int MODULE_SLOT_Y = 53;
 
+    /** The gap between the fill slot and the fuel slot in the left column. */
+    private static final int MODE_BUTTON_X = 7;
+    private static final int MODE_BUTTON_Y = 35;
+    private static final int MODE_BUTTON_W = 34;
+    private static final int MODE_BUTTON_H = 16;
+
     /** Sits over the fuel slot, which electric tiers do not use. */
     private static final int ENERGY_BAR_X = 8;
     private static final int ENERGY_BAR_Y = 53;
@@ -45,10 +55,44 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
         super(menu, inventory, title, PANEL_WIDTH, PANEL_HEIGHT);
     }
 
+    private @Nullable Button digModeButton;
+
     @Override
     protected void init() {
         super.init();
         this.titleLabelX = (this.imageWidth - this.font.width(this.title)) / 2;
+
+        // Sits in the gap between the fill and fuel slots on the left column, which is the
+        // only space in the layout that is not a slot.
+        this.digModeButton = addRenderableWidget(Button.builder(
+                        this.menu.digMode().label(),
+                        button -> cycleDigMode())
+                .bounds(this.leftPos + MODE_BUTTON_X, this.topPos + MODE_BUTTON_Y,
+                        MODE_BUTTON_W, MODE_BUTTON_H)
+                .tooltip(Tooltip.create(this.menu.digMode().description()))
+                .build());
+    }
+
+    /**
+     * Sends the cycle through vanilla's menu-button channel. The server owns the setting;
+     * the label follows from synced data rather than being predicted here, so a rejected
+     * click simply does nothing instead of showing a mode the machine is not in.
+     */
+    private void cycleDigMode() {
+        if (this.minecraft != null && this.minecraft.gameMode != null) {
+            this.minecraft.gameMode.handleInventoryButtonClick(
+                    this.menu.containerId, MinerMenu.BUTTON_CYCLE_DIG_MODE);
+        }
+    }
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        if (this.digModeButton != null) {
+            DigMode mode = this.menu.digMode();
+            this.digModeButton.setMessage(mode.label());
+            this.digModeButton.setTooltip(Tooltip.create(mode.description()));
+        }
     }
 
     @Override

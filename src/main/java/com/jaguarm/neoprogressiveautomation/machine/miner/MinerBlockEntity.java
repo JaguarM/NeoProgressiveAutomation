@@ -110,6 +110,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     private int elapsedTicks;
     private int requiredTicks;
     private MinerStatus status = MinerStatus.NO_PICKAXE;
+    private DigMode digMode = DigMode.ORE_ONLY;
 
     /** How often the miner scans its neighbours to push output. */
     private static final int PUSH_INTERVAL_TICKS = 20;
@@ -325,7 +326,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         if (items.get(SLOT_SHOVEL).isEmpty()) {
             return MinerStatus.NO_SHOVEL;
         }
-        if (Config.REQUIRE_COBBLE_BACKFILL.get() && items.get(SLOT_COBBLE).isEmpty()) {
+        if (needsBackfill() && items.get(SLOT_COBBLE).isEmpty()) {
             return MinerStatus.NO_COBBLE;
         }
         if (!drawPower(level)) {
@@ -558,14 +559,14 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
             return ToolChoice.NONE;
         }
         // Don't re-mine our own backfill.
-        if (state.is(Blocks.COBBLESTONE) && Config.REQUIRE_COBBLE_BACKFILL.get()) {
+        if (state.is(Blocks.COBBLESTONE) && needsBackfill()) {
             return ToolChoice.NONE;
         }
 
-        // With a filter installed, walk past anything that is not an ore. Skipped blocks
-        // are never broken, so no hole forms, no cobble is spent and no stone reaches the
-        // output. This is what stops a miner turning the world into a cobble cube.
-        if (hasFilter() && !state.is(Tags.Blocks.ORES)) {
+        // Ore only, unless the mode says otherwise. Skipped blocks are never broken, so no
+        // hole forms, no fill is spent and no stone reaches the output. This is the default
+        // because it is the behaviour that survives a player's first hour.
+        if (!digMode.breaksEverything() && !state.is(Tags.Blocks.ORES)) {
             return ToolChoice.NONE;
         }
 
@@ -699,9 +700,9 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         return stack.is(Blocks.COBBLESTONE.asItem()) || stack.is(Blocks.COBBLED_DEEPSLATE.asItem());
     }
 
-    /** Backfills with whatever fill is loaded, or leaves air, depending on the config. */
+    /** Backfills with whatever fill is loaded, or leaves air if this drill does not fill. */
     private void replaceMinedBlock(ServerLevel level, BlockPos target) {
-        if (!Config.REQUIRE_COBBLE_BACKFILL.get()) {
+        if (!needsBackfill()) {
             level.removeBlock(target, false);
             return;
         }
@@ -760,7 +761,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
      * cobble into a slot the machine never draws from would just lose it from the output.
      */
     private void refillFromOutput(ItemStack stack) {
-        if (!Config.REQUIRE_COBBLE_BACKFILL.get() || stack.isEmpty() || !isFillMaterial(stack)) {
+        if (!needsBackfill() || stack.isEmpty() || !isFillMaterial(stack)) {
             return;
         }
 
@@ -818,9 +819,25 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         return count;
     }
 
-    /** True when a filter module is installed, restricting the miner to ores. */
-    private boolean hasFilter() {
-        return moduleCount(ModuleType.FILTER) > 0;
+    public DigMode digMode() {
+        return digMode;
+    }
+
+    /** Advances to the next mode. Called from the screen's button, through the menu. */
+    public void cycleDigMode() {
+        digMode = digMode.next();
+        setChanged();
+    }
+
+    /**
+     * Whether this drill fills the holes it makes, and therefore needs fill material.
+     *
+     * <p>Only in clear-and-fill mode. Ore-only mode takes ore out of solid rock and leaves
+     * pockets nobody will ever see, and charging fill for those would starve the machine:
+     * it never breaks stone, so it never produces the cobblestone to refill itself.
+     */
+    private boolean needsBackfill() {
+        return digMode.fills() && Config.REQUIRE_COBBLE_BACKFILL.get();
     }
 
     /** Radius in blocks: the configured base, widened by range modules. */
@@ -903,7 +920,8 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     /** Keeps players from dropping a pickaxe into the fuel slot and wondering why nothing burns. */
     @Override
     public boolean canPlaceItem(int slot, ItemStack stack) {
-        return acceptsInSlot(slot, stack, level, tier.moduleSlots(), tier.isElectric());
+        return acceptsInSlot(slot, stack, level,
+                new SlotRules(tier.moduleSlots(), tier.isElectric(), needsBackfill()));
     }
 
     /**
@@ -918,26 +936,32 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
      * @param unlockedModuleSlots how many module slots the machine's tier allows; the
      *                            client reads this from synced container data
      */
-    public static boolean acceptsInSlot(int slot, ItemStack stack, @Nullable Level level,
-            int unlockedModuleSlots, boolean electric) {
+    public static boolean acceptsInSlot(int slot, ItemStack stack, @Nullable Level level, SlotRules rules) {
         return switch (slot) {
             // Electric tiers have no use for fuel, so the slot refuses it outright rather
             // than accepting coal that would sit there doing nothing.
-            case SLOT_FUEL -> !electric
+            case SLOT_FUEL -> !rules.electric()
                     && level != null
                     && stack.getBurnTime(RecipeType.SMELTING, level.fuelValues()) > 0;
-            case SLOT_COBBLE -> isFillMaterial(stack);
+            // Only a boring drill fills its holes, so only a boring drill takes fill.
+            case SLOT_COBBLE -> rules.needsFill() && isFillMaterial(stack);
             case SLOT_PICKAXE -> stack.is(ItemTags.PICKAXES);
             case SLOT_SHOVEL -> stack.is(ItemTags.SHOVELS);
             default -> {
                 int moduleIndex = slot - SLOT_MODULE_START;
                 yield moduleIndex >= 0
                         && moduleIndex < MODULE_SLOTS
-                        && moduleIndex < unlockedModuleSlots
+                        && moduleIndex < rules.unlockedModuleSlots()
                         && ModuleItem.typeOf(stack) != null;
             }
         };
     }
+
+    /**
+     * The machine facts a slot rule needs, bundled so client and server can be handed the
+     * same thing. The client reads all three out of synced container data.
+     */
+    public record SlotRules(int unlockedModuleSlots, boolean electric, boolean needsFill) {}
 
     // -- Automation faces -------------------------------------------------------
 
@@ -1001,6 +1025,8 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
                 case 7 -> tier.isElectric() ? 1 : 0;
                 case 8 -> energy.getAmountAsInt();
                 case 9 -> energy.getCapacityAsInt();
+                case 10 -> needsBackfill() ? 1 : 0;
+                case 11 -> digMode.ordinal();
                 default -> 0;
             };
         }
@@ -1020,7 +1046,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
         @Override
         public int getCount() {
-            return 10;
+            return 12;
         }
     };
 
@@ -1069,6 +1095,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
             output.putString("OwnerId", ownerId.toString());
         }
         energy.serialize(output.child("Energy"));
+        output.putString("DigMode", digMode.id());
     }
 
     @Override
@@ -1084,5 +1111,14 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         requiredTicks = input.getIntOr("RequiredTicks", 0);
         ownerId = input.getString("OwnerId").map(UUID::fromString).orElse(null);
         input.child("Energy").ifPresent(energy::deserialize);
+        // Stored by name, not ordinal, so reordering the enum cannot silently change what
+        // an existing machine does.
+        String mode = input.getStringOr("DigMode", DigMode.ORE_ONLY.id());
+        for (DigMode candidate : DigMode.values()) {
+            if (candidate.id().equals(mode)) {
+                digMode = candidate;
+                break;
+            }
+        }
     }
 }
