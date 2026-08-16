@@ -11,7 +11,8 @@ import com.jaguarm.neoprogressiveautomation.machine.MachineTier;
 import com.jaguarm.neoprogressiveautomation.machine.ModuleItem;
 import com.jaguarm.neoprogressiveautomation.machine.ModuleType;
 import com.jaguarm.neoprogressiveautomation.machine.Spiral;
-import com.jaguarm.neoprogressiveautomation.world.crumble.OreCrumbling;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.phys.AABB;
 import com.jaguarm.neoprogressiveautomation.registry.ModBlockEntities;
 
 import org.jspecify.annotations.Nullable;
@@ -479,10 +480,11 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
      * so it works on any block including modded ones, and needs no model or texture.
      */
     private void showWorkingOn(ServerLevel level, BlockPos target, BlockState state) {
-        // Crumbling ore already carries its own crack overlay showing how worked-out it is.
-        // Two overlays on one block would fight, and the crumble state is the more useful
-        // of the two, so leave that block alone.
-        if (OreCrumbling.crumbles(state)) {
+        // Leave ore alone. Ore is where other mods most often take over a break — Crumbling
+        // Ore paints its own wear overlay on exactly these blocks — and two crack overlays
+        // on one block fight. Losing progress feedback on ore is the cheaper of the two,
+        // and cannot be decided by asking, since we deliberately depend on nothing.
+        if (state.is(Tags.Blocks.ORES)) {
             return;
         }
         if (!target.equals(visualTarget)) {
@@ -644,30 +646,23 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         // invisible to everything else: protection mods, block-break logging, and any mod
         // that reacts to mining never hear about it.
         BreakBlockEvent breakEvent = new BreakBlockEvent(level, target, state, miner);
-        boolean[] refused = new boolean[1];
-        OreCrumbling.duringMachineBreak(() -> refused[0] = NeoForge.EVENT_BUS.post(breakEvent).isCanceled());
-        if (refused[0]) {
-            // Somebody refused it. Step past rather than retrying forever on a block we
-            // are never going to be allowed to take.
-            currentY--;
-            return;
-        }
-
-        // Ore crumbles rather than breaking: take one harvest and leave the rest standing.
-        // Smashing it in one pass and backfilling would throw away everything still in the
-        // block, which is the whole point of the mechanic.
-        if (OreCrumbling.crumbles(state)) {
-            boolean exhausted = OreCrumbling.harvest(
-                    level, target, state, toolStack, null, drop -> storeOrDrop(level, drop));
+        if (NeoForge.EVENT_BUS.post(breakEvent).isCanceled()) {
+            // Somebody else handled or refused this break. Collect anything they dropped
+            // in our place, damage the tool as though we had swung it, and leave the block
+            // alone — a mod that cancelled the break has decided what stands there now.
+            //
+            // This is how the drill cooperates with mods that intercept mining, Crumbling
+            // Ore among them: an ore that wears down over several hits cancels the break
+            // each time and drops one harvest, and the drill simply keeps working it.
+            absorbDrops(level, target);
             if (tool != ToolChoice.HAND) {
                 damageTool(level, slotFor(tool));
             }
-            if (!exhausted) {
-                // Still ore. Leave it in place and come back to it next pass rather than
-                // advancing, so the machine keeps working the same block down.
-                return;
+            if (level.getBlockState(target).equals(state)) {
+                // Unchanged and refused outright: nothing we do here will ever take it, so
+                // step past instead of retrying forever.
+                currentY--;
             }
-            replaceMinedBlock(level, target);
             return;
         }
 
@@ -726,6 +721,30 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
                 items.set(slot, ItemStack.EMPTY);
             }
         });
+    }
+
+    /**
+     * Sweeps up items lying at a position the drill just worked.
+     *
+     * <p>When another mod handles a break itself it drops the yield on the ground, because
+     * it has no idea a machine is standing by. Rather than special-casing each such mod,
+     * the drill collects whatever ended up there. Anything it cannot fit is left lying, as
+     * it would be for a player.
+     */
+    private void absorbDrops(ServerLevel level, BlockPos target) {
+        AABB area = new AABB(target).inflate(0.5);
+        for (ItemEntity entity : level.getEntitiesOfClass(ItemEntity.class, area)) {
+            if (entity.isRemoved()) {
+                continue;
+            }
+            ItemStack stack = entity.getItem();
+            storeOrDrop(level, stack);
+            if (stack.isEmpty()) {
+                entity.discard();
+            } else {
+                entity.setItem(stack);
+            }
+        }
     }
 
     /** Puts a stack in the output slots, dropping any remainder into the world. */

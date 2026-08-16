@@ -11,7 +11,6 @@
   "gui.neoprogressiveautomation.miner.mode.clear_and_fill.desc": "Clear and Fill — mines everything, then fills the hole back in. Uses one block of fill per block dug.",
   "gui.neoprogressiveautomation.miner.mode.clear": "Clear",
   "gui.neoprogressiveautomation.miner.mode.clear.desc": "Clear — mines everything and leaves the hole open.",
-  "message.neoprogressiveautomation.crumble_lock": "This node is already fractured and cannot be lifted intact.",
   "tooltip.neoprogressiveautomation.module.speed": "Mines faster, burns fuel faster",
   "tooltip.neoprogressiveautomation.module.efficiency": "Burns less fuel, mines slower",
   "tooltip.neoprogressiveautomation.module.range": "Widens the mining area",
