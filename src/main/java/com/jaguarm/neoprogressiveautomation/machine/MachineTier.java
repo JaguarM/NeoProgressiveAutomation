@@ -13,10 +13,15 @@ import net.minecraft.util.StringRepresentable;
  * works, it just cannot be tuned, which is what makes tiering up worth doing.
  */
 public enum MachineTier implements StringRepresentable {
-    WOOD("wood", 0),
-    STONE("stone", 1),
-    IRON("iron", 2),
-    DIAMOND("diamond", 3);
+    WOOD("wood", 0, false),
+    STONE("stone", 1, false),
+    IRON("iron", 2, false),
+    /**
+     * The electric tier. Runs on FE rather than solid fuel, following Factorio's split
+     * between the burner drill you start with and the electric drill you graduate to: the
+     * step up is infrastructure, not just a bigger number.
+     */
+    DIAMOND("diamond", 3, true);
 
     /** Every miner reserves this many module slots; tiers differ in how many are usable. */
     public static final int MAX_MODULE_SLOTS = 3;
@@ -25,10 +30,17 @@ public enum MachineTier implements StringRepresentable {
 
     private final String id;
     private final int moduleSlots;
+    private final boolean electric;
 
-    MachineTier(String id, int moduleSlots) {
+    MachineTier(String id, int moduleSlots, boolean electric) {
         this.id = id;
         this.moduleSlots = moduleSlots;
+        this.electric = electric;
+    }
+
+    /** True if this tier runs on energy instead of burning fuel. */
+    public boolean isElectric() {
+        return electric;
     }
 
     public String id() {

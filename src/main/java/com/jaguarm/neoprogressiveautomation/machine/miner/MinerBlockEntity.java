@@ -61,6 +61,9 @@ import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.energy.EnergyHandler;
+import net.neoforged.neoforge.transfer.energy.LimitingEnergyHandler;
+import net.neoforged.neoforge.transfer.energy.SimpleEnergyHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
 
@@ -136,6 +139,24 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
     /** Block currently showing our break overlay, so it can be cleared when we move on. */
     private @Nullable BlockPos visualTarget;
+
+    /**
+     * Energy buffer. Present on every tier so the field stays simple, but only drawn from
+     * by electric ones; a burner miner never touches it and exposes no capability.
+     *
+     * <p>Unrestricted so the machine can spend from it. External access goes through
+     * {@link #cableView} instead.
+     */
+    private final SimpleEnergyHandler energy = new SimpleEnergyHandler(
+            Config.ENERGY_CAPACITY.get(), Config.ENERGY_CAPACITY.get(), Config.ENERGY_CAPACITY.get());
+
+    /**
+     * What cables see: insertion only. A miner is a consumer, not a battery, so a network
+     * must not be able to pull its charge back out. The buffer itself has to stay
+     * extractable or the machine could not spend its own energy.
+     */
+    private final EnergyHandler cableView =
+            new LimitingEnergyHandler(energy, Config.ENERGY_CAPACITY.get(), 0);
 
     public MinerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.MINER.get(), pos, state);
@@ -307,8 +328,8 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         if (Config.REQUIRE_COBBLE_BACKFILL.get() && items.get(SLOT_COBBLE).isEmpty()) {
             return MinerStatus.NO_COBBLE;
         }
-        if (burnTime == 0 && !tryConsumeFuel(level)) {
-            return MinerStatus.NO_FUEL;
+        if (!drawPower(level)) {
+            return tier.isElectric() ? MinerStatus.NO_ENERGY : MinerStatus.NO_FUEL;
         }
 
         BlockPos target = findNextTarget(level);
@@ -351,6 +372,48 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         if (state.hasProperty(MinerBlock.LIT) && state.getValue(MinerBlock.LIT) != lit) {
             level.setBlockAndUpdate(worldPosition, state.setValue(MinerBlock.LIT, lit));
         }
+    }
+
+    /**
+     * Takes whatever this tier runs on for one tick of work.
+     *
+     * <p>Electric miners draw FE only while actually mining, so an idle one costs nothing
+     * to leave powered. Burner tiers keep the furnace model of consuming a whole fuel item
+     * up front and spending it down.
+     *
+     * @return false if there is nothing to run on
+     */
+    private boolean drawPower(ServerLevel level) {
+        if (!tier.isElectric()) {
+            return burnTime > 0 || tryConsumeFuel(level);
+        }
+
+        int cost = energyPerTick();
+        if (cost <= 0) {
+            return true;
+        }
+        try (Transaction transaction = Transaction.openRoot()) {
+            if (energy.extract(cost, transaction) < cost) {
+                return false;
+            }
+            transaction.commit();
+            return true;
+        }
+    }
+
+    /** FE per tick after modules; the same trade speed and efficiency make with fuel. */
+    private int energyPerTick() {
+        float factor = moduleFactor(ModuleType.SPEED, true) * moduleFactor(ModuleType.EFFICIENCY, true);
+        return Math.max(1, Math.round(Config.ENERGY_PER_TICK.get() * factor));
+    }
+
+    /** The insert-only view for cables, or null on tiers that do not use energy. */
+    public @Nullable EnergyHandler cableView() {
+        return tier.isElectric() ? cableView : null;
+    }
+
+    public int storedEnergy() {
+        return energy.getAmountAsInt();
     }
 
     private boolean tryConsumeFuel(ServerLevel level) {
@@ -840,7 +903,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     /** Keeps players from dropping a pickaxe into the fuel slot and wondering why nothing burns. */
     @Override
     public boolean canPlaceItem(int slot, ItemStack stack) {
-        return acceptsInSlot(slot, stack, level, tier.moduleSlots());
+        return acceptsInSlot(slot, stack, level, tier.moduleSlots(), tier.isElectric());
     }
 
     /**
@@ -855,9 +918,14 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
      * @param unlockedModuleSlots how many module slots the machine's tier allows; the
      *                            client reads this from synced container data
      */
-    public static boolean acceptsInSlot(int slot, ItemStack stack, @Nullable Level level, int unlockedModuleSlots) {
+    public static boolean acceptsInSlot(int slot, ItemStack stack, @Nullable Level level,
+            int unlockedModuleSlots, boolean electric) {
         return switch (slot) {
-            case SLOT_FUEL -> level != null && stack.getBurnTime(RecipeType.SMELTING, level.fuelValues()) > 0;
+            // Electric tiers have no use for fuel, so the slot refuses it outright rather
+            // than accepting coal that would sit there doing nothing.
+            case SLOT_FUEL -> !electric
+                    && level != null
+                    && stack.getBurnTime(RecipeType.SMELTING, level.fuelValues()) > 0;
             case SLOT_COBBLE -> isFillMaterial(stack);
             case SLOT_PICKAXE -> stack.is(ItemTags.PICKAXES);
             case SLOT_SHOVEL -> stack.is(ItemTags.SHOVELS);
@@ -930,6 +998,9 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
                 case 4 -> status.ordinal();
                 case 5 -> tier.moduleSlots();
                 case 6 -> range();
+                case 7 -> tier.isElectric() ? 1 : 0;
+                case 8 -> energy.getAmountAsInt();
+                case 9 -> energy.getCapacityAsInt();
                 default -> 0;
             };
         }
@@ -949,7 +1020,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
         @Override
         public int getCount() {
-            return 7;
+            return 10;
         }
     };
 
@@ -997,6 +1068,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         if (ownerId != null) {
             output.putString("OwnerId", ownerId.toString());
         }
+        energy.serialize(output.child("Energy"));
     }
 
     @Override
@@ -1011,5 +1083,6 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         elapsedTicks = input.getIntOr("ElapsedTicks", 0);
         requiredTicks = input.getIntOr("RequiredTicks", 0);
         ownerId = input.getString("OwnerId").map(UUID::fromString).orElse(null);
+        input.child("Energy").ifPresent(energy::deserialize);
     }
 }

@@ -52,6 +52,19 @@ public final class Config {
             .comment("Whether tools are consumed when their durability runs out.")
             .define("miner.destroyTools", true);
 
+    // -- Energy -----------------------------------------------------------------
+
+    public static final ModConfigSpec.IntValue ENERGY_CAPACITY = BUILDER
+            .comment("How much FE an electric miner can hold.")
+            .defineInRange("energy.capacity", 40_000, 1_000, 100_000_000);
+
+    public static final ModConfigSpec.IntValue ENERGY_PER_TICK = BUILDER
+            .comment(
+                    "FE drawn per tick while an electric miner is actively mining.",
+                    "Idle machines draw nothing. Speed modules raise this and efficiency",
+                    "modules lower it, the same trade the burner tiers make with fuel.")
+            .defineInRange("energy.perTick", 40, 0, 1_000_000);
+
     // -- Crumbling ores ---------------------------------------------------------
 
     public static final ModConfigSpec.BooleanValue CRUMBLING_ORES = BUILDER

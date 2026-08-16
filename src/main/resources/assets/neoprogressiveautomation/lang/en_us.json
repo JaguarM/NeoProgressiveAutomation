@@ -24,6 +24,7 @@
   "gui.neoprogressiveautomation.miner.status.idle": "Idle",
   "gui.neoprogressiveautomation.miner.status.running": "Mining",
   "gui.neoprogressiveautomation.miner.status.no_fuel": "Needs fuel",
+  "gui.neoprogressiveautomation.miner.status.no_energy": "Needs power",
   "gui.neoprogressiveautomation.miner.status.no_pickaxe": "Needs a pickaxe",
   "gui.neoprogressiveautomation.miner.status.no_shovel": "Needs a shovel",
   "gui.neoprogressiveautomation.miner.status.no_cobble": "Needs cobblestone",

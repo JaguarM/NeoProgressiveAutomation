@@ -17,6 +17,7 @@ public enum MinerStatus {
     IDLE("idle"),
     RUNNING("running"),
     NO_FUEL("no_fuel"),
+    NO_ENERGY("no_energy"),
     NO_PICKAXE("no_pickaxe"),
     NO_SHOVEL("no_shovel"),
     NO_COBBLE("no_cobble"),

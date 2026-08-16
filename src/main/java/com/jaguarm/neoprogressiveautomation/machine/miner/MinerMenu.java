@@ -28,7 +28,7 @@ public class MinerMenu extends AbstractContainerMenu {
     /** Client-side constructor: a stand-in container the server syncs into, plus the machine's position. */
     public MinerMenu(int containerId, Inventory playerInventory, BlockPos machinePos) {
         this(containerId, playerInventory, new SimpleContainer(MinerBlockEntity.SLOT_COUNT),
-                new SimpleContainerData(7), machinePos);
+                new SimpleContainerData(10), machinePos);
     }
 
     public MinerMenu(int containerId, Inventory playerInventory, Container container, ContainerData data,
@@ -99,7 +99,8 @@ public class MinerMenu extends AbstractContainerMenu {
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            return MinerBlockEntity.acceptsInSlot(getContainerSlot(), stack, level, unlockedModuleSlots());
+            return MinerBlockEntity.acceptsInSlot(
+                    getContainerSlot(), stack, level, unlockedModuleSlots(), isElectric());
         }
 
         @Override
@@ -135,6 +136,25 @@ public class MinerMenu extends AbstractContainerMenu {
 
     public BlockPos machinePos() {
         return machinePos;
+    }
+
+    /** True if this machine runs on FE rather than solid fuel. */
+    public boolean isElectric() {
+        return data.get(7) != 0;
+    }
+
+    /** Charge level from 0 to 1, for the energy bar. */
+    public float energyProgress() {
+        int capacity = data.get(9);
+        return capacity <= 0 ? 0.0f : (float) data.get(8) / capacity;
+    }
+
+    public int storedEnergy() {
+        return data.get(8);
+    }
+
+    public int energyCapacity() {
+        return data.get(9);
     }
 
     public boolean isBurning() {

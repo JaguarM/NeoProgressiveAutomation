@@ -26,6 +26,14 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
     private static final int MODULE_SLOT_X = 44;
     private static final int MODULE_SLOT_Y = 53;
 
+    /** Sits over the fuel slot, which electric tiers do not use. */
+    private static final int ENERGY_BAR_X = 8;
+    private static final int ENERGY_BAR_Y = 53;
+    private static final int ENERGY_BAR_W = 16;
+    private static final int ENERGY_BAR_H = 16;
+    private static final int ENERGY_EMPTY = 0xFF2B2B2B;
+    private static final int ENERGY_FULL = 0xFFE8A22B;
+
     /** 18px taller than the vanilla 166, leaving a clear row for the status line. */
     private static final int PANEL_WIDTH = 176;
     private static final int PANEL_HEIGHT = 184;
@@ -68,6 +76,30 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
                 256, 256);
 
         shadeLockedModuleSlots(graphics, x, y);
+        drawEnergyBar(graphics, x, y);
+    }
+
+    /**
+     * Charge gauge, drawn only on electric miners.
+     *
+     * <p>Occupies the fuel slot's position, which is unused on this tier: the fuel slot
+     * rejects everything, so the space would otherwise be a slot that silently refuses
+     * items. A gauge there says "this machine eats power, not coal" without needing a
+     * separate panel.
+     */
+    private void drawEnergyBar(GuiGraphicsExtractor graphics, int originX, int originY) {
+        if (!this.menu.isElectric()) {
+            return;
+        }
+        int left = originX + ENERGY_BAR_X;
+        int top = originY + ENERGY_BAR_Y;
+
+        graphics.fill(left, top, left + ENERGY_BAR_W, top + ENERGY_BAR_H, ENERGY_EMPTY);
+        int filled = Math.round(ENERGY_BAR_H * Math.clamp(this.menu.energyProgress(), 0.0f, 1.0f));
+        if (filled > 0) {
+            // Fills upward, the way a tank or battery reads.
+            graphics.fill(left, top + ENERGY_BAR_H - filled, left + ENERGY_BAR_W, top + ENERGY_BAR_H, ENERGY_FULL);
+        }
     }
 
     /**
