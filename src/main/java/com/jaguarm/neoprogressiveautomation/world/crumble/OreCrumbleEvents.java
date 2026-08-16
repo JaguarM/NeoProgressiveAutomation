@@ -47,6 +47,11 @@ public final class OreCrumbleEvents {
         if (!OreCrumbling.crumbles(event.getState())) {
             return;
         }
+        // One of our machines is announcing a break it will carry out itself, yield and
+        // all. Crumbling here as well would harvest the block twice.
+        if (OreCrumbling.isMachineBreakInProgress()) {
+            return;
+        }
 
         ServerPlayer player = event.getPlayer() instanceof ServerPlayer serverPlayer ? serverPlayer : null;
         // Creative keeps vanilla behaviour: clearing terrain should not take eight hits.

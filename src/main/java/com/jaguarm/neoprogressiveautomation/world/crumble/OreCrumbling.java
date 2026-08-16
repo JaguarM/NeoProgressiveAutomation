@@ -46,6 +46,31 @@ public final class OreCrumbling {
      */
     private static final int BREAKER_ID_BASE = 1_000_000;
 
+    /**
+     * Set while one of our own machines is posting a break event.
+     *
+     * <p>Machines fire BreakBlockEvent so the rest of the game can see and veto their
+     * mining, but they crumble ore themselves, routing the yield into their own inventory.
+     * Without this guard our listener would crumble the same block a second time. A plain
+     * static is enough because machine ticking and event dispatch both happen on the server
+     * thread, and the flag is only ever set across a single synchronous post.
+     */
+    private static boolean machineBreakInProgress;
+
+    /** Posts {@code action} with our own listener suppressed. */
+    public static void duringMachineBreak(Runnable action) {
+        machineBreakInProgress = true;
+        try {
+            action.run();
+        } finally {
+            machineBreakInProgress = false;
+        }
+    }
+
+    public static boolean isMachineBreakInProgress() {
+        return machineBreakInProgress;
+    }
+
     private OreCrumbling() {}
 
     /** True if this block should crumble rather than break outright. */

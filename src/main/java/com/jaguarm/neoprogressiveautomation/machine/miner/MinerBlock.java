@@ -5,8 +5,12 @@ import com.jaguarm.neoprogressiveautomation.registry.ModBlockEntities;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
+import org.jspecify.annotations.Nullable;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.Containers;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
@@ -52,6 +56,16 @@ public class MinerBlock extends BaseEntityBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new MinerBlockEntity(pos, state);
+    }
+
+    /** Remember the placer, so the machine mines as them for protection purposes. */
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state,
+            @Nullable LivingEntity placer, ItemStack itemStack) {
+        super.setPlacedBy(level, pos, state, placer, itemStack);
+        if (level.getBlockEntity(pos) instanceof MinerBlockEntity miner) {
+            miner.setOwner(placer);
+        }
     }
 
     @Override

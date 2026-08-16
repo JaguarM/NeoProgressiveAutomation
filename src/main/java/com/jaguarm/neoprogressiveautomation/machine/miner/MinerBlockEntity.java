@@ -1,6 +1,9 @@
 package com.jaguarm.neoprogressiveautomation.machine.miner;
 
 import java.util.List;
+import java.util.UUID;
+
+import com.mojang.authlib.GameProfile;
 
 import com.jaguarm.neoprogressiveautomation.Config;
 import com.jaguarm.neoprogressiveautomation.NeoProgressiveAutomation;
@@ -48,8 +51,13 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.Tags;
+import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
@@ -104,6 +112,20 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     /** Last range pushed to clients, so an unchanged range costs no packets. */
     private int lastSyncedRange = -1;
 
+    /**
+     * Who placed this machine. The miner acts through a fake player carrying this identity,
+     * so land-protection mods judge it as its owner rather than as an anonymous machine.
+     * Null on machines placed before this was tracked, or by non-players.
+     */
+    private @Nullable UUID ownerId;
+
+    /**
+     * Fixed name paired with the owner's UUID. Protection mods key on the UUID, and a
+     * constant name makes the machine recognisable in logs rather than impersonating the
+     * player outright.
+     */
+    private static final String FAKE_PLAYER_NAME = "[NeoProgressiveAutomation]";
+
     /** How many blocks the target search may examine in one tick. */
     private static final int SCAN_BUDGET_PER_TICK = 512;
 
@@ -120,6 +142,29 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     public MachineTier tier() {
         return tier;
     }
+
+    /** Records the placer so the machine can act on their behalf. */
+    public void setOwner(@Nullable LivingEntity placer) {
+        if (placer instanceof Player player) {
+            ownerId = player.getUUID();
+            setChanged();
+        }
+    }
+
+    /**
+     * The identity this machine mines as.
+     *
+     * <p>Mining through a fake player rather than calling world methods directly is what
+     * makes the machine visible to the rest of the game: protection mods can refuse it,
+     * other mods see a break event, and drops and tool damage are attributed to somebody.
+     */
+    private FakePlayer fakePlayer(ServerLevel level) {
+        UUID id = ownerId != null ? ownerId : FALLBACK_OWNER;
+        return FakePlayerFactory.get(level, new GameProfile(id, FAKE_PLAYER_NAME));
+    }
+
+    /** Used when the placer is unknown, e.g. a machine placed by another machine. */
+    private static final UUID FALLBACK_OWNER = UUID.nameUUIDFromBytes("neoprogressiveautomation:miner".getBytes());
 
     public NonNullList<ItemStack> items() {
         return items;
@@ -364,7 +409,8 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
                     return null;
                 }
                 BlockPos candidate = new BlockPos(column.getX(), currentY, column.getZ());
-                if (toolFor(level.getBlockState(candidate), candidate) != ToolChoice.NONE) {
+                if (toolFor(level.getBlockState(candidate), candidate) != ToolChoice.NONE
+                        && level.mayInteract(fakePlayer(level), candidate)) {
                     return candidate;
                 }
                 currentY--;
@@ -436,6 +482,20 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     private void mineBlock(ServerLevel level, BlockPos target, BlockState state, ToolChoice tool) {
         BlockEntity targetEntity = level.getBlockEntity(target);
         ItemStack toolStack = tool == ToolChoice.HAND ? ItemStack.EMPTY : items.get(slotFor(tool));
+        FakePlayer miner = fakePlayer(level);
+
+        // Announce the break the same way a player's would be. Without this the machine is
+        // invisible to everything else: protection mods, block-break logging, and any mod
+        // that reacts to mining never hear about it.
+        BreakBlockEvent breakEvent = new BreakBlockEvent(level, target, state, miner);
+        boolean[] refused = new boolean[1];
+        OreCrumbling.duringMachineBreak(() -> refused[0] = NeoForge.EVENT_BUS.post(breakEvent).isCanceled());
+        if (refused[0]) {
+            // Somebody refused it. Step past rather than retrying forever on a block we
+            // are never going to be allowed to take.
+            currentY--;
+            return;
+        }
 
         // Ore crumbles rather than breaking: take one harvest and leave the rest standing.
         // Smashing it in one pass and backfilling would throw away everything still in the
@@ -484,7 +544,9 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
     private void damageTool(ServerLevel level, int slot) {
         ItemStack toolStack = items.get(slot);
-        toolStack.hurtAndBreak(1, level, null, item -> {
+        // Damage through the fake player rather than a null breaker, so Unbreaking and any
+        // mod hooks on durability see an entity and behave as they would for a player.
+        toolStack.hurtAndBreak(1, level, fakePlayer(level), item -> {
             if (Config.DESTROY_TOOLS.get()) {
                 items.set(slot, ItemStack.EMPTY);
             }
@@ -789,6 +851,9 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         output.putInt("CurrentY", currentY);
         output.putInt("ElapsedTicks", elapsedTicks);
         output.putInt("RequiredTicks", requiredTicks);
+        if (ownerId != null) {
+            output.putString("OwnerId", ownerId.toString());
+        }
     }
 
     @Override
@@ -802,5 +867,6 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         currentY = input.getIntOr("CurrentY", Integer.MIN_VALUE);
         elapsedTicks = input.getIntOr("ElapsedTicks", 0);
         requiredTicks = input.getIntOr("RequiredTicks", 0);
+        ownerId = input.getString("OwnerId").map(UUID::fromString).orElse(null);
     }
 }
