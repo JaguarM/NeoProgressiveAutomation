@@ -32,6 +32,11 @@ bin/
 ### Mac OS ###
 .DS_Store
 
+### Reference copies of other mods ###
+# Studied for their approach, not part of this project, and not ours to redistribute.
+JustDireThings-main/
+_OLD/
+
 ### Minecraft Modding ###
 run/
 !**/src/**/run/
