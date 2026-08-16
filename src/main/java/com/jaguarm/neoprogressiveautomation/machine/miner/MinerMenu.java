@@ -96,6 +96,21 @@ public class MinerMenu extends AbstractContainerMenu {
         public boolean mayPlace(ItemStack stack) {
             return MinerBlockEntity.acceptsInSlot(getContainerSlot(), stack, level, unlockedModuleSlots());
         }
+
+        @Override
+        public int getMaxStackSize() {
+            return isModuleSlot() ? 1 : super.getMaxStackSize();
+        }
+
+        @Override
+        public int getMaxStackSize(ItemStack stack) {
+            return isModuleSlot() ? 1 : super.getMaxStackSize(stack);
+        }
+
+        private boolean isModuleSlot() {
+            return getContainerSlot() >= MinerBlockEntity.SLOT_MODULE_START
+                    && getContainerSlot() < MinerBlockEntity.SLOT_OUTPUT_START;
+        }
     }
 
     /** True if this module slot is usable at the machine's tier, for shading in the screen. */

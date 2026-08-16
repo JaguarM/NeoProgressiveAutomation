@@ -482,7 +482,11 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
             }
             ItemStack stack = items.get(SLOT_MODULE_START + i);
             if (ModuleItem.typeOf(stack) == type) {
-                count += stack.getCount();
+                // One module per slot, Factorio-style. Counting stack sizes let three
+                // slots of 64 range modules reach radius 193, which is 148k columns and
+                // effectively unbounded. The menu caps the slot; this caps the effect,
+                // so a stack arriving by any other route still cannot exceed one.
+                count++;
             }
         }
         return count;
