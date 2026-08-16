@@ -13,6 +13,8 @@
 
   "container.neoprogressiveautomation.miner": "Miner",
 
+  "message.neoprogressiveautomation.crumble_lock": "This node is already fractured and cannot be lifted intact.",
+
   "tooltip.neoprogressiveautomation.module.speed": "Mines faster, burns fuel faster",
   "tooltip.neoprogressiveautomation.module.efficiency": "Burns less fuel, mines slower",
   "tooltip.neoprogressiveautomation.module.range": "Widens the mining area",

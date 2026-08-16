@@ -50,6 +50,11 @@ public class OreCrumbleState extends SavedData {
 
     private final Map<BlockPos, Integer> remaining = new HashMap<>();
 
+    /** True if this position has been worked and is being tracked. */
+    public boolean isTracked(BlockPos pos) {
+        return remaining.containsKey(pos.immutable());
+    }
+
     /** Harvests left at this position, or {@code fullValue} if it has not been touched. */
     public int remainingAt(BlockPos pos, int fullValue) {
         return remaining.getOrDefault(pos.immutable(), fullValue);

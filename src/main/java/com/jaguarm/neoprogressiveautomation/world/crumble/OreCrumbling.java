@@ -4,8 +4,18 @@ import java.util.function.Consumer;
 
 import com.jaguarm.neoprogressiveautomation.Config;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -43,6 +53,36 @@ public final class OreCrumbling {
         return Config.CRUMBLING_ORES.get() && state.is(Tags.Blocks.ORES);
     }
 
+    /** True if this position has already been worked and is being tracked. */
+    public static boolean isFractured(ServerLevel level, BlockPos pos) {
+        return level.getDataStorage().computeIfAbsent(OreCrumbleState.TYPE).isTracked(pos);
+    }
+
+    /**
+     * Whether Silk Touch should simply take a pristine node whole.
+     *
+     * <p>Callers let vanilla do the work in this case rather than emulating it: vanilla
+     * knows the block's real silk-touch loot, which is not always "one of itself", and it
+     * also handles tool damage and statistics. An untouched node moved this way is not a
+     * duplication, because exactly one block goes in and one comes out.
+     */
+    public static boolean silkTouchTakesWhole(ServerLevel level, BlockPos pos, ItemStack tool) {
+        return !isFractured(level, pos) && hasSilkTouch(level, tool);
+    }
+
+    /** Tells the player why their Silk Touch pickaxe did not lift the node. */
+    public static void warnCrumbleLock(ServerLevel level, BlockPos pos, @Nullable ServerPlayer player) {
+        level.playSound(null, pos, SoundEvents.DEEPSLATE_BREAK, SoundSource.BLOCKS, 0.8F, 0.6F);
+        if (player != null) {
+            // overlay = true puts it on the action bar, where a repeated message will not
+            // spam the chat log.
+            player.sendSystemMessage(
+                    Component.translatable("message.neoprogressiveautomation.crumble_lock")
+                            .withStyle(ChatFormatting.GRAY),
+                    true);
+        }
+    }
+
     /**
      * Takes one harvest out of an ore.
      *
@@ -67,6 +107,13 @@ public final class OreCrumbling {
         OreCrumbleState crumble = level.getDataStorage().computeIfAbsent(OreCrumbleState.TYPE);
         int total = Config.CRUMBLE_HARVESTS.get();
         int remaining = crumble.remainingAt(pos, total);
+        // Silk Touch never yields an intact ore here. A pristine node is handled before
+        // this method is ever reached; anything that gets this far is already fractured,
+        // and handing back a whole ore on top of the harvests already taken out of it is
+        // the duplication exploit: partially mine, silk touch, replace, repeat.
+        if (hasSilkTouch(level, tool)) {
+            tool = withoutSilkTouch(level, tool);
+        }
 
         BlockEntity blockEntity = level.getBlockEntity(pos);
         Block.getDrops(state, level, pos, blockEntity, breaker, tool).forEach(collector);
@@ -81,6 +128,40 @@ public final class OreCrumbling {
         crumble.set(pos, left);
         showVisualProgress(level, pos, left, total);
         return false;
+    }
+
+    /** Drops any tracking for a position, and clears its crack overlay. */
+    public static void forget(ServerLevel level, BlockPos pos) {
+        OreCrumbleState crumble = level.getDataStorage().computeIfAbsent(OreCrumbleState.TYPE);
+        if (crumble.isTracked(pos)) {
+            crumble.clear(pos);
+            clearVisualProgress(level, pos);
+        }
+    }
+
+    public static boolean hasSilkTouch(ServerLevel level, ItemStack tool) {
+        return !tool.isEmpty() && silkTouchLevel(level, tool) > 0;
+    }
+
+    private static int silkTouchLevel(ServerLevel level, ItemStack tool) {
+        Holder<Enchantment> silkTouch = level.registryAccess()
+                .lookupOrThrow(Registries.ENCHANTMENT)
+                .getOrThrow(Enchantments.SILK_TOUCH);
+        return EnchantmentHelper.getItemEnchantmentLevel(silkTouch, tool);
+    }
+
+    /**
+     * A copy of the tool with Silk Touch removed, so the ore yields its ordinary loot.
+     * Copied rather than modified in place, and only Silk Touch is stripped, so Fortune on
+     * the same tool still applies.
+     */
+    private static ItemStack withoutSilkTouch(ServerLevel level, ItemStack tool) {
+        Holder<Enchantment> silkTouch = level.registryAccess()
+                .lookupOrThrow(Registries.ENCHANTMENT)
+                .getOrThrow(Enchantments.SILK_TOUCH);
+        ItemStack copy = tool.copy();
+        EnchantmentHelper.updateEnchantments(copy, enchantments -> enchantments.removeIf(silkTouch::equals));
+        return copy;
     }
 
     /** Paints the vanilla crack overlay in proportion to how worn the ore is. */
