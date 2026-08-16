@@ -231,9 +231,6 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
             clearWorkingOn(level);
         }
         if (newStatus != status) {
-            NeoProgressiveAutomation.LOGGER.debug(
-                    "miner@{} status {} -> {} (column {}, y {})",
-                    worldPosition, status, newStatus, columnIndex, currentY);
             status = newStatus;
             changed = true;
         }
@@ -342,29 +339,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         }
 
         advanceMining(level, target);
-        traceProgress(level, target);
         return MinerStatus.RUNNING;
-    }
-
-    /**
-     * Periodic trace of what the miner is actually chewing on. A machine that looks stuck
-     * from the surface is usually working a column you cannot see, so log the column index
-     * and target rather than guessing.
-     */
-    private void traceProgress(ServerLevel level, BlockPos target) {
-        if (level.getGameTime() % 40 != 0) {
-            return;
-        }
-        NeoProgressiveAutomation.LOGGER.debug(
-                "miner@{} column {}/{} target {} block {} elapsed {}/{} burn {}",
-                worldPosition,
-                columnIndex,
-                Spiral.columnsForRadius(range()),
-                target,
-                level.getBlockState(target).getBlock().getName().getString(),
-                elapsedTicks,
-                requiredTicks,
-                burnTime);
     }
 
     /**
