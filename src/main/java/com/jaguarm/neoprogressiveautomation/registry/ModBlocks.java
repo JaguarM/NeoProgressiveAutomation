@@ -32,7 +32,10 @@ public final class ModBlocks {
                 properties -> properties
                         .mapColor(colour)
                         .strength(strength)
-                        .sound(sound)));
+                        .sound(sound)
+                        // Glows while working, like a lit furnace. Dimmer than one, since
+                        // a drill's face is a warning light rather than an open firebox.
+                        .lightLevel(state -> state.getValue(MinerBlock.LIT) ? 8 : 0)));
     }
 
     private ModBlocks() {}

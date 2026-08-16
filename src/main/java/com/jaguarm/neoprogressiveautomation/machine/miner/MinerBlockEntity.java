@@ -367,10 +367,16 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
                 burnTime);
     }
 
-    /** Keeps the LIT blockstate in step with the fuel, so the block model shows activity. */
+    /**
+     * Keeps the LIT blockstate in step with the machine, so the model shows activity.
+     *
+     * <p>Driven by whether the drill is actually working, not by whether fuel happens to
+     * be burning. An electric drill has no burn time at all and so never lit up, and a
+     * burner with fuel but no pickaxe used to glow while doing nothing.
+     */
     private void syncLitState(ServerLevel level) {
         BlockState state = getBlockState();
-        boolean lit = isBurning();
+        boolean lit = status == MinerStatus.RUNNING;
         if (state.hasProperty(MinerBlock.LIT) && state.getValue(MinerBlock.LIT) != lit) {
             level.setBlockAndUpdate(worldPosition, state.setValue(MinerBlock.LIT, lit));
         }

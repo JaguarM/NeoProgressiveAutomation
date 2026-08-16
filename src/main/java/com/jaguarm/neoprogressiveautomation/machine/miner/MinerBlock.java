@@ -8,7 +8,10 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jspecify.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.Containers;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -28,15 +31,20 @@ public class MinerBlock extends BaseEntityBlock {
             propertiesCodec()
     ).apply(instance, (tier, properties) -> new MinerBlock(properties, tier)));
 
-    /** Lit while the machine has fuel burning, so the model can show an active face. */
+    /** Lit while the machine is actually working, so the model can show an active face. */
     public static final BooleanProperty LIT = BlockStateProperties.LIT;
+
+    /** Which way the drill's face points. Cosmetic: it digs straight down regardless. */
+    public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
 
     private final MachineTier tier;
 
     public MinerBlock(Properties properties, MachineTier tier) {
         super(properties);
         this.tier = tier;
-        registerDefaultState(getStateDefinition().any().setValue(LIT, false));
+        registerDefaultState(getStateDefinition().any()
+                .setValue(LIT, false)
+                .setValue(FACING, Direction.NORTH));
     }
 
     public MachineTier tier() {
@@ -50,7 +58,13 @@ public class MinerBlock extends BaseEntityBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(LIT);
+        builder.add(LIT, FACING);
+    }
+
+    /** Faces the player who placed it, the way a furnace does. */
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 
     @Override
