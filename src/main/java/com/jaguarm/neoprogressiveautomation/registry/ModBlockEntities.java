@@ -13,13 +13,13 @@ public final class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, NeoProgressiveAutomation.MODID);
 
-    /** One type backs every miner tier; the entity reads its tier from the block. */
+    /** One type backs both drills; the entity reads its tier from the block. */
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<MinerBlockEntity>> MINER =
             BLOCK_ENTITIES.register(
                     "miner",
                     () -> new BlockEntityType<>(
                             MinerBlockEntity::new,
-                            ModBlocks.MINERS.stream()
+                            ModBlocks.DRILLS.values().stream()
                                     .map(net.neoforged.neoforge.registries.DeferredBlock::get)
                                     .toArray(net.minecraft.world.level.block.Block[]::new)));
 

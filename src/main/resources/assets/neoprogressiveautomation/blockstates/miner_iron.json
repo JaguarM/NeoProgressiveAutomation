@@ -1,6 +1,0 @@
-{
-  "variants": {
-    "lit=false": { "model": "neoprogressiveautomation:block/miner_iron" },
-    "lit=true": { "model": "neoprogressiveautomation:block/miner_iron_on" }
-  }
-}

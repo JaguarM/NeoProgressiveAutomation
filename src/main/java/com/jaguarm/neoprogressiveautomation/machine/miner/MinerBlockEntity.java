@@ -162,7 +162,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         super(ModBlockEntities.MINER.get(), pos, state);
         // One block entity type backs all four miner blocks; the tier comes from whichever
         // block this entity was placed for.
-        this.tier = state.getBlock() instanceof MinerBlock miner ? miner.tier() : MachineTier.WOOD;
+        this.tier = state.getBlock() instanceof MinerBlock miner ? miner.tier() : MachineTier.BURNER;
     }
 
     public MachineTier tier() {

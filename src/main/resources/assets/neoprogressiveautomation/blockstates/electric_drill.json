@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "lit=false": { "model": "neoprogressiveautomation:block/electric_drill" },
+    "lit=true": { "model": "neoprogressiveautomation:block/electric_drill_on" }
+  }
+}

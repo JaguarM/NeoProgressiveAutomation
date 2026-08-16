@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "s": "minecraft:stone",
+    "f": "minecraft:furnace",
+    "p": "minecraft:stone_pickaxe"
+  },
+  "pattern": [ "sss", "sfs", "sps" ],
+  "result": { "id": "neoprogressiveautomation:burner_drill" }
+}

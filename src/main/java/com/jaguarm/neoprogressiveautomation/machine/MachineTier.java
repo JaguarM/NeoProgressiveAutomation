@@ -7,23 +7,27 @@ import net.minecraft.util.StringRepresentable;
 /**
  * The four progression tiers shared by every machine in the mod.
  *
- * <p>Tiers no longer gate which upgrades fit — modules are universal. What a tier buys is
- * {@linkplain #moduleSlots() module slots}, so progression is about how many trade-offs
- * you can run at once. The wooden miner has none, matching Factorio's burner drill: it
- * works, it just cannot be tuned, which is what makes tiering up worth doing.
+ * <p>Two drills rather than a tier ladder. Four tiers were doing work the modules already
+ * do better: with modules carrying the choices, the middle tiers were only a slower path
+ * to the same place. What separates these two is what powers them and how many trade-offs
+ * they can run, which is a real decision rather than a number going up.
  */
 public enum MachineTier implements StringRepresentable {
-    WOOD("wood", 0, false),
-    STONE("stone", 1, false),
-    IRON("iron", 2, false),
     /**
-     * The electric tier. Runs on FE rather than solid fuel, following Factorio's split
-     * between the burner drill you start with and the electric drill you graduate to: the
-     * step up is infrastructure, not just a bigger number.
+     * The drill you start with. Burns solid fuel and takes no modules at all, so it digs
+     * whatever is in front of it and floods you with stone. Crude on purpose: it is the
+     * thing you want to replace.
      */
-    DIAMOND("diamond", 3, true);
+    BURNER("burner_drill", 0, false),
 
-    /** Every miner reserves this many module slots; tiers differ in how many are usable. */
+    /**
+     * The drill you graduate to. Runs on FE and takes three modules, which is where every
+     * choice in the mod lives: speed against fuel cost, or a filter that leaves the
+     * terrain alone. The step up is infrastructure, not just a bigger recipe.
+     */
+    ELECTRIC("electric_drill", 3, true);
+
+    /** Every drill reserves this many module slots; the burner simply unlocks none. */
     public static final int MAX_MODULE_SLOTS = 3;
 
     public static final Codec<MachineTier> CODEC = StringRepresentable.fromEnum(MachineTier::values);

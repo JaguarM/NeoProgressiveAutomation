@@ -1,8 +1,0 @@
-{
-  "parent": "minecraft:block/orientable",
-  "textures": {
-    "front": "neoprogressiveautomation:block/miner_diamond_front_on",
-    "side": "neoprogressiveautomation:block/miner_diamond_side",
-    "top": "neoprogressiveautomation:block/miner_diamond_top"
-  }
-}

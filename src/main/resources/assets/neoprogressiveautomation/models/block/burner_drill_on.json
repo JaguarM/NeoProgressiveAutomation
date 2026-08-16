@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "neoprogressiveautomation:block/burner_drill_front_on",
+    "side": "neoprogressiveautomation:block/burner_drill_side",
+    "top": "neoprogressiveautomation:block/burner_drill_top"
+  }
+}

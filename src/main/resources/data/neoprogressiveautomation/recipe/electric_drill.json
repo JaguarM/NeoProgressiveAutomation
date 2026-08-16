@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "i": "minecraft:iron_ingot",
+    "b": "neoprogressiveautomation:burner_drill",
+    "r": "minecraft:redstone_block",
+    "p": "minecraft:iron_pickaxe"
+  },
+  "pattern": [ "iri", "ibi", "ipi" ],
+  "result": { "id": "neoprogressiveautomation:electric_drill" }
+}

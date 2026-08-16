@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "neoprogressiveautomation:block/electric_drill_front",
+    "side": "neoprogressiveautomation:block/electric_drill_side",
+    "top": "neoprogressiveautomation:block/electric_drill_top"
+  }
+}

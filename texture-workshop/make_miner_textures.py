@@ -89,17 +89,18 @@ dmddmdddmddmddmd
 """
 
 # --- palettes --------------------------------------------------------------
-# Five material tones per tier, sampled off the vanilla block the tier is made of
-# (oak_planks, cobblestone, iron_block, diamond_block) and extended one step
-# darker where vanilla has no tone dark enough to read as a recess.
+# Five material tones per drill, sampled off the vanilla block it is made of
+# (cobblestone, iron_block) and extended one step darker where vanilla has no tone
+# dark enough to read as a recess.
+#
+# Two drills, not four tiers: the burner you start with and the electric you graduate
+# to, as in Factorio. The old wood and diamond palettes are gone with their tiers.
 TIERS = {
-    "wood":    dict(K="#3a2c18", D="#67502c", M="#9f844d", L="#b8945f", H="#c29d62"),
-    "stone":   dict(K="#2f2f2f", D="#525252", M="#6e6d6d", L="#888788", H="#b5b5b5"),
-    "iron":    dict(K="#3c3b3b", D="#7d7d7d", M="#b1b0b0", L="#d6d6d6", H="#f2f2f2"),
-    "diamond": dict(K="#12454a", D="#0e8f92", M="#15c2c6", L="#4bede6", H="#9efeeb"),
+    "burner_drill":   dict(K="#2f2f2f", D="#525252", M="#6e6d6d", L="#888788", H="#b5b5b5"),
+    "electric_drill": dict(K="#3c3b3b", D="#7d7d7d", M="#b1b0b0", L="#d6d6d6", H="#f2f2f2"),
 }
 
-# Shared across all four tiers -- this is what makes them one machine family.
+# Shared across both drills -- this is what makes them one machine family.
 ACCENT_DARK = "#9c6a16"
 ACCENT_LIT = "#e8ae2b"
 FIREBOX_OUTER_COLD = "#191919"
@@ -148,7 +149,7 @@ def main():
             ("side", render(side, tone, lit=False)),
             ("top", render(top, tone, lit=False)),
         ):
-            path = os.path.join(OUT, "miner_%s_%s.png" % (tier, name))
+            path = os.path.join(OUT, "%s_%s.png" % (tier, name))
             img.save(path)
             written.append((tier, name, img))
 

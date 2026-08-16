@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "lit=false": { "model": "neoprogressiveautomation:block/burner_drill" },
+    "lit=true": { "model": "neoprogressiveautomation:block/burner_drill_on" }
+  }
+}

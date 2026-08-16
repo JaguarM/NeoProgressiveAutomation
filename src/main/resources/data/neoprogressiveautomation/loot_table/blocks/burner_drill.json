@@ -4,7 +4,7 @@
     {
       "rolls": 1,
       "bonus_rolls": 0,
-      "entries": [ { "type": "minecraft:item", "name": "neoprogressiveautomation:miner_diamond" } ],
+      "entries": [ { "type": "minecraft:item", "name": "neoprogressiveautomation:burner_drill" } ],
       "conditions": [ { "condition": "minecraft:survives_explosion" } ]
     }
   ]

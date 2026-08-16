@@ -1,10 +1,8 @@
 {
   "itemGroup.neoprogressiveautomation": "Neo Progressive Automation",
 
-  "block.neoprogressiveautomation.miner_wood": "Wooden Miner",
-  "block.neoprogressiveautomation.miner_stone": "Stone Miner",
-  "block.neoprogressiveautomation.miner_iron": "Iron Miner",
-  "block.neoprogressiveautomation.miner_diamond": "Diamond Miner",
+  "block.neoprogressiveautomation.burner_drill": "Burner Mining Drill",
+  "block.neoprogressiveautomation.electric_drill": "Electric Mining Drill",
 
   "item.neoprogressiveautomation.speed_module": "Speed Module",
   "item.neoprogressiveautomation.efficiency_module": "Efficiency Module",
