@@ -9,6 +9,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.level.PistonEvent;
 import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 
@@ -72,10 +73,31 @@ public final class OreCrumbleEvents {
             OreCrumbling.warnCrumbleLock(level, pos, player);
         }
 
-        if (!exhausted) {
-            // Ore is still standing. Cancelling suppresses vanilla's break and its drops,
-            // which harvest() has already handled.
-            event.setCanceled(true);
+        // Always cancel: harvest() has already produced the drops for this hit. Letting
+        // vanilla proceed on the final hit made it break the block and roll the loot table
+        // a second time, which is why the last harvest paid out twice.
+        event.setCanceled(true);
+
+        if (exhausted) {
+            // Take the spent block out ourselves. false = do not drop, since the yield for
+            // this hit has already been handed over.
+            level.destroyBlock(pos, false);
+        }
+    }
+
+    /**
+     * How often the crack overlay is re-sent. Comfortably under the 400 ticks after which
+     * a client discards progress it has not heard about, so the visual never lapses.
+     */
+    private static final int VISUAL_REFRESH_TICKS = 100;
+
+    @SubscribeEvent
+    static void onLevelTick(LevelTickEvent.Post event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        if (level.getGameTime() % VISUAL_REFRESH_TICKS == 0) {
+            OreCrumbling.refreshVisuals(level);
         }
     }
 

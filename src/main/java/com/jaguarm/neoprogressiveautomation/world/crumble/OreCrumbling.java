@@ -130,6 +130,38 @@ public final class OreCrumbling {
         return false;
     }
 
+    /**
+     * Re-sends the crack overlay for every tracked position, and prunes entries whose
+     * block is no longer crumbling ore.
+     *
+     * <p>destroyBlockProgress is fire-and-forget: the server sends it once, only to players
+     * within 32 blocks, and the client discards entries it has not heard about for 400
+     * ticks. Nothing replays it on world load or when a player walks up. Since crumble
+     * progress is durable but its visual is not, the visual has to be refreshed.
+     *
+     * <p>The prune covers every way a block can be replaced without an event we hook —
+     * /setblock, worldedit, another mod swapping the block — turning "inherits a stranger's
+     * damage" into "starts fresh" without having to enumerate the routes.
+     */
+    public static void refreshVisuals(ServerLevel level) {
+        OreCrumbleState crumble = level.getDataStorage().computeIfAbsent(OreCrumbleState.TYPE);
+        int total = Config.CRUMBLE_HARVESTS.get();
+
+        for (BlockPos pos : crumble.trackedPositions()) {
+            // Leave unloaded chunks alone: nobody can see them, and touching them would
+            // force chunk loads for no benefit.
+            if (!level.isLoaded(pos)) {
+                continue;
+            }
+            if (!crumbles(level.getBlockState(pos))) {
+                crumble.clear(pos);
+                clearVisualProgress(level, pos);
+                continue;
+            }
+            showVisualProgress(level, pos, crumble.remainingAt(pos, total), total);
+        }
+    }
+
     /** Drops any tracking for a position, and clears its crack overlay. */
     public static void forget(ServerLevel level, BlockPos pos) {
         OreCrumbleState crumble = level.getDataStorage().computeIfAbsent(OreCrumbleState.TYPE);
