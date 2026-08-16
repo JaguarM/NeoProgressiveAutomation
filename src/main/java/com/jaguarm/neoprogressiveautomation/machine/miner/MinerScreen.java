@@ -41,7 +41,8 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
     private static final int ENERGY_BAR_Y = 53;
     private static final int ENERGY_BAR_W = 16;
     private static final int ENERGY_BAR_H = 16;
-    private static final int ENERGY_EMPTY = 0xFF2B2B2B;
+    /** Lighter than the slot interior, so an empty gauge reads as empty rather than absent. */
+    private static final int ENERGY_EMPTY = 0xFF4A4A4A;
     private static final int ENERGY_FULL = 0xFFE8A22B;
 
     /** 18px taller than the vanilla 166, leaving a clear row for the status line. */
@@ -138,11 +139,20 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
         int left = originX + ENERGY_BAR_X;
         int top = originY + ENERGY_BAR_Y;
 
-        graphics.fill(left, top, left + ENERGY_BAR_W, top + ENERGY_BAR_H, ENERGY_EMPTY);
-        int filled = Math.round(ENERGY_BAR_H * Math.clamp(this.menu.energyProgress(), 0.0f, 1.0f));
+        // Inset by a pixel so the slot well's own bevel frames the gauge. Filling the
+        // whole well edge to edge in near-black read as a hole in the panel rather than as
+        // an empty meter.
+        int x0 = left + 1;
+        int y0 = top + 1;
+        int x1 = left + ENERGY_BAR_W - 1;
+        int y1 = top + ENERGY_BAR_H - 1;
+
+        graphics.fill(x0, y0, x1, y1, ENERGY_EMPTY);
+        int height = y1 - y0;
+        int filled = Math.round(height * Math.clamp(this.menu.energyProgress(), 0.0f, 1.0f));
         if (filled > 0) {
             // Fills upward, the way a tank or battery reads.
-            graphics.fill(left, top + ENERGY_BAR_H - filled, left + ENERGY_BAR_W, top + ENERGY_BAR_H, ENERGY_FULL);
+            graphics.fill(x0, y1 - filled, x1, y1, ENERGY_FULL);
         }
     }
 

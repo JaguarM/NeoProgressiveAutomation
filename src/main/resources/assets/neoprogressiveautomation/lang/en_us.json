@@ -8,12 +8,12 @@
   "item.neoprogressiveautomation.efficiency_module": "Efficiency Module",
   "item.neoprogressiveautomation.range_module": "Range Module",
 
-  "gui.neoprogressiveautomation.miner.mode.ore_only": "Ore Only",
-  "gui.neoprogressiveautomation.miner.mode.ore_only.desc": "Mines ore and leaves the terrain standing. No holes, no cobblestone.",
-  "gui.neoprogressiveautomation.miner.mode.clear_and_fill": "Clear + Fill",
-  "gui.neoprogressiveautomation.miner.mode.clear_and_fill.desc": "Mines everything and fills the hole back in, using one block of fill per block dug.",
-  "gui.neoprogressiveautomation.miner.mode.clear": "Clear",
-  "gui.neoprogressiveautomation.miner.mode.clear.desc": "Mines everything and leaves the hole open.",
+  "gui.neoprogressiveautomation.miner.mode.ore_only": "Ore",
+  "gui.neoprogressiveautomation.miner.mode.ore_only.desc": "Ore Only — mines ore and leaves the terrain standing. No holes, no fill needed.",
+  "gui.neoprogressiveautomation.miner.mode.clear_and_fill": "Fill",
+  "gui.neoprogressiveautomation.miner.mode.clear_and_fill.desc": "Clear and Fill — mines everything, then fills the hole back in. Uses one block of fill per block dug.",
+  "gui.neoprogressiveautomation.miner.mode.clear": "Pit",
+  "gui.neoprogressiveautomation.miner.mode.clear.desc": "Clear — mines everything and leaves the hole open.",
 
   "container.neoprogressiveautomation.miner": "Miner",
 
