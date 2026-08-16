@@ -39,6 +39,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -572,14 +573,33 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         }
     }
 
-    /** Backfills with cobble, or leaves air, depending on the config. */
+    /**
+     * What counts as backfill.
+     *
+     * <p>Cobbled deepslate as well as cobblestone, because below y=0 stone stops dropping
+     * cobblestone and starts dropping cobbled deepslate. Accepting only cobblestone meant
+     * a miner refilled itself down to y=0 and then quietly starved for the rest of the
+     * shaft, which is the least intuitive place for it to stop.
+     */
+    private static boolean isFillMaterial(ItemStack stack) {
+        return stack.is(Blocks.COBBLESTONE.asItem()) || stack.is(Blocks.COBBLED_DEEPSLATE.asItem());
+    }
+
+    /** Backfills with whatever fill is loaded, or leaves air, depending on the config. */
     private void replaceMinedBlock(ServerLevel level, BlockPos target) {
-        if (Config.REQUIRE_COBBLE_BACKFILL.get()) {
-            level.setBlockAndUpdate(target, Blocks.COBBLESTONE.defaultBlockState());
-            items.get(SLOT_COBBLE).shrink(1);
-        } else {
+        if (!Config.REQUIRE_COBBLE_BACKFILL.get()) {
             level.removeBlock(target, false);
+            return;
         }
+
+        ItemStack fill = items.get(SLOT_COBBLE);
+        // Place what is actually in the slot rather than assuming cobblestone, so a miner
+        // running on deepslate backfills with deepslate.
+        BlockState placed = fill.getItem() instanceof BlockItem blockItem
+                ? blockItem.getBlock().defaultBlockState()
+                : Blocks.COBBLESTONE.defaultBlockState();
+        level.setBlockAndUpdate(target, placed);
+        fill.shrink(1);
     }
 
     private void damageTool(ServerLevel level, int slot) {
@@ -595,6 +615,12 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
     /** Puts a stack in the output slots, dropping any remainder into the world. */
     private void storeOrDrop(ServerLevel level, ItemStack stack) {
+        // Top the fill slot up first. A miner digging stone produces exactly the
+        // cobblestone it needs to backfill the hole it just made, so feeding its own
+        // output back in makes it self-sustaining instead of something you hand-feed
+        // cobble to. Only the seed stack is needed to get it started.
+        refillFromOutput(stack);
+
         for (int i = SLOT_OUTPUT_START; i < SLOT_COUNT && !stack.isEmpty(); i++) {
             ItemStack slotStack = items.get(i);
             if (slotStack.isEmpty()) {
@@ -611,6 +637,32 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         if (!stack.isEmpty()) {
             Block.popResource(level, worldPosition.above(), stack);
         }
+    }
+
+    /**
+     * Moves as much of {@code stack} into the fill slot as it will take.
+     *
+     * <p>Only when backfilling is on: with it off there is nothing to feed, and diverting
+     * cobble into a slot the machine never draws from would just lose it from the output.
+     */
+    private void refillFromOutput(ItemStack stack) {
+        if (!Config.REQUIRE_COBBLE_BACKFILL.get() || stack.isEmpty() || !isFillMaterial(stack)) {
+            return;
+        }
+
+        ItemStack fill = items.get(SLOT_COBBLE);
+        if (fill.isEmpty()) {
+            items.set(SLOT_COBBLE, stack.split(stack.getCount()));
+            return;
+        }
+        if (!ItemStack.isSameItemSameComponents(fill, stack)) {
+            return;
+        }
+
+        int room = fill.getMaxStackSize() - fill.getCount();
+        int moved = Math.min(room, stack.getCount());
+        fill.grow(moved);
+        stack.shrink(moved);
     }
 
     private int enchantmentLevel(ItemStack stack, ResourceKey<Enchantment> key) {
@@ -755,7 +807,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     public static boolean acceptsInSlot(int slot, ItemStack stack, @Nullable Level level, int unlockedModuleSlots) {
         return switch (slot) {
             case SLOT_FUEL -> level != null && stack.getBurnTime(RecipeType.SMELTING, level.fuelValues()) > 0;
-            case SLOT_COBBLE -> stack.is(Blocks.COBBLESTONE.asItem());
+            case SLOT_COBBLE -> isFillMaterial(stack);
             case SLOT_PICKAXE -> stack.is(ItemTags.PICKAXES);
             case SLOT_SHOVEL -> stack.is(ItemTags.SHOVELS);
             default -> {
