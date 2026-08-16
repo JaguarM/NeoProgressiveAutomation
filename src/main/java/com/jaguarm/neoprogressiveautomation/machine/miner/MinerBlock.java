@@ -73,7 +73,8 @@ public class MinerBlock extends BaseEntityBlock {
         if (!level.isClientSide()) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof MinerBlockEntity miner) {
-                player.openMenu(miner);
+                // Position variant: the client needs it to draw the dig-area preview.
+                player.openMenu(miner, pos);
             }
         }
         return net.minecraft.world.InteractionResult.SUCCESS;

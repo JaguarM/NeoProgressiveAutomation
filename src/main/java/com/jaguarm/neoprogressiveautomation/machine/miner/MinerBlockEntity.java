@@ -647,7 +647,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
-        return new MinerMenu(containerId, inventory, this, dataAccess);
+        return new MinerMenu(containerId, inventory, this, dataAccess, worldPosition);
     }
 
     /** Syncs burn progress to the client so the screen can draw a fuel indicator. */
@@ -661,6 +661,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
                 case 3 -> requiredTicks;
                 case 4 -> status.ordinal();
                 case 5 -> tier.moduleSlots();
+                case 6 -> range();
                 default -> 0;
             };
         }
@@ -680,7 +681,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
         @Override
         public int getCount() {
-            return 6;
+            return 7;
         }
     };
 

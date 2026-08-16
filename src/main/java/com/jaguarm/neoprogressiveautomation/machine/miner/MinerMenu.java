@@ -2,6 +2,7 @@ package com.jaguarm.neoprogressiveautomation.machine.miner;
 
 import com.jaguarm.neoprogressiveautomation.registry.ModMenus;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -21,19 +22,23 @@ public class MinerMenu extends AbstractContainerMenu {
     private final ContainerData data;
     /** Needed to resolve fuel burn times; present on both client and server. */
     private final net.minecraft.world.level.Level level;
+    /** Where the machine is, so the client can draw its dig area. */
+    private final BlockPos machinePos;
 
-    /** Client-side constructor: the menu is opened with a stand-in container that the server syncs into. */
-    public MinerMenu(int containerId, Inventory playerInventory) {
+    /** Client-side constructor: a stand-in container the server syncs into, plus the machine's position. */
+    public MinerMenu(int containerId, Inventory playerInventory, BlockPos machinePos) {
         this(containerId, playerInventory, new SimpleContainer(MinerBlockEntity.SLOT_COUNT),
-                new SimpleContainerData(6));
+                new SimpleContainerData(7), machinePos);
     }
 
-    public MinerMenu(int containerId, Inventory playerInventory, Container container, ContainerData data) {
+    public MinerMenu(int containerId, Inventory playerInventory, Container container, ContainerData data,
+            BlockPos machinePos) {
         super(ModMenus.MINER.get(), containerId);
         checkContainerSize(container, MinerBlockEntity.SLOT_COUNT);
         this.container = container;
         this.data = data;
         this.level = playerInventory.player.level();
+        this.machinePos = machinePos;
 
         // Machine slots. Positions mirror the generated GUI texture. Every one uses the
         // same shared rule as the block entity so client and server never disagree.
@@ -121,6 +126,15 @@ public class MinerMenu extends AbstractContainerMenu {
     /** How many module slots this machine's tier unlocks. */
     public int unlockedModuleSlots() {
         return data.get(5);
+    }
+
+    /** The machine's dig radius, synced so the client can draw the preview. */
+    public int range() {
+        return Math.max(1, data.get(6));
+    }
+
+    public BlockPos machinePos() {
+        return machinePos;
     }
 
     public boolean isBurning() {
