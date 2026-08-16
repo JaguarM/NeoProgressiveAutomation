@@ -5,7 +5,6 @@ import com.jaguarm.neoprogressiveautomation.NeoProgressiveAutomation;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ShapeRenderer;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -47,19 +46,19 @@ public final class MinerAreaPreview {
         }
         Vec3 camera = event.getLevelRenderState().cameraRenderState.pos;
 
+        // 26.2 has a purpose-built submit for this. It takes the shape in world space, so
+        // the camera offset goes into the pose rather than into the shape's coordinates.
         PoseStack poseStack = event.getPoseStack();
-        event.getSubmitNodeCollector().submitCustomGeometry(
+        poseStack.pushPose();
+        poseStack.translate(-camera.x, -camera.y, -camera.z);
+        event.getSubmitNodeCollector().submitShapeOutline(
                 poseStack,
+                Shapes.create(area),
                 RenderTypes.lines(),
-                (pose, buffer) -> ShapeRenderer.renderShape(
-                        poseStack,
-                        buffer,
-                        Shapes.create(area),
-                        -camera.x,
-                        -camera.y,
-                        -camera.z,
-                        OUTLINE_ARGB,
-                        LINE_WIDTH));
+                OUTLINE_ARGB,
+                LINE_WIDTH,
+                false);
+        poseStack.popPose();
     }
 
     /**
@@ -75,7 +74,7 @@ public final class MinerAreaPreview {
                 && minecraft.level.getBlockEntity(hit.getBlockPos()) instanceof MinerBlockEntity miner) {
             return digArea(minecraft.level, hit.getBlockPos(), miner.range());
         }
-        if (minecraft.screen instanceof MinerScreen screen) {
+        if (minecraft.gui.screen() instanceof MinerScreen screen) {
             MinerMenu menu = screen.getMenu();
             return digArea(minecraft.level, menu.machinePos(), menu.range());
         }

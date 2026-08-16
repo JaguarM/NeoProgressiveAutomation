@@ -28,10 +28,31 @@ sourceSets.main.resources {
 }
 
 repositories {
-    // Maven Central is declared first on purpose. The NeoForged mirror has intermittently
-    // served zero-byte POMs for third-party libraries (log4j, jackson) via its CDN, which
-    // Gradle reports as "Content is not allowed in prolog". Resolving these from Central
-    // first avoids that. See https://maven.neoforged.net/ vs https://repo1.maven.org/maven2/
+    // The NeoForged mirror intermittently serves *zero-byte* files with HTTP 200 for
+    // third-party libraries. It is a CDN caching fault, not a local one: the same URL
+    // returns 0 bytes from maven.neoforged.net and the correct file from Central.
+    //
+    // Ordering alone does not fix it, because the moddev plugin registers its repositories
+    // before this block and wins. exclusiveContent does fix it: these groups are then
+    // served *only* by Central and the broken mirror is never consulted for them.
+    //
+    // Symptoms, so a future reader recognises it rather than debugging their own code:
+    //   "Content is not allowed in prolog"          - an empty .pom being parsed as XML
+    //   "zip file is empty" / "zip END header not found" - an empty .jar
+    // The giveaway is a Gradle cache directory named da39a3ee5e6b4b0d3255bfef95601890afd80709,
+    // which is the SHA-1 of the empty string.
+    //
+    // Fix if it happens for a new group: add it here, delete the offending directory under
+    // ~/.gradle/caches/modules-2/files-2.1, and rebuild with --refresh-dependencies.
+    exclusiveContent {
+        forRepository { mavenCentral() }
+        filter {
+            includeGroup 'com.google.errorprone'
+            includeGroup 'com.fasterxml.jackson'
+            includeGroup 'org.apache.logging.log4j'
+        }
+    }
+
     mavenCentral()
 
     // Add here additional repositories if required by some of the dependencies below.
