@@ -21,7 +21,14 @@ public enum ModuleType implements net.minecraft.util.StringRepresentable {
     EFFICIENCY("efficiency", 1.15f, 0.60f, 0),
 
     /** Wider dig area, no running-cost change. */
-    RANGE("range", 1.0f, 1.0f, 1);
+    RANGE("range", 1.0f, 1.0f, 1),
+
+    /**
+     * Take only what is worth taking. The miner leaves everything that is not an ore
+     * exactly where it is, so the terrain survives and the output is not buried under
+     * thousands of cobblestone.
+     */
+    FILTER("filter", 1.0f, 1.0f, 0);
 
     public static final com.mojang.serialization.Codec<ModuleType> CODEC =
             net.minecraft.util.StringRepresentable.fromEnum(ModuleType::values);

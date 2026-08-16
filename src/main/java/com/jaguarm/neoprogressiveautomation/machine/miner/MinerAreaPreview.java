@@ -10,7 +10,9 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -35,12 +37,14 @@ public final class MinerAreaPreview {
     @SubscribeEvent
     static void onSubmitGeometry(SubmitCustomGeometryEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (!(minecraft.screen instanceof MinerScreen screen) || minecraft.level == null) {
+        if (minecraft.level == null) {
             return;
         }
 
-        MinerMenu menu = screen.getMenu();
-        AABB area = digArea(minecraft.level, menu.machinePos(), menu.range());
+        AABB area = activeArea(minecraft);
+        if (area == null) {
+            return;
+        }
         Vec3 camera = event.getLevelRenderState().cameraRenderState.pos;
 
         PoseStack poseStack = event.getPoseStack();
@@ -56,6 +60,26 @@ public final class MinerAreaPreview {
                         -camera.z,
                         OUTLINE_ARGB,
                         LINE_WIDTH));
+    }
+
+    /**
+     * Which miner to outline, or null for none.
+     *
+     * <p>Looking at a machine is the primary trigger, the way Factorio shows a drill's
+     * coverage on hover: opening a screen to find out what a machine covers is exactly the
+     * friction the preview exists to remove. The open screen still counts, so the outline
+     * stays up while modules are being swapped.
+     */
+    private static @Nullable AABB activeArea(Minecraft minecraft) {
+        if (minecraft.hitResult instanceof BlockHitResult hit
+                && minecraft.level.getBlockEntity(hit.getBlockPos()) instanceof MinerBlockEntity miner) {
+            return digArea(minecraft.level, hit.getBlockPos(), miner.range());
+        }
+        if (minecraft.screen instanceof MinerScreen screen) {
+            MinerMenu menu = screen.getMenu();
+            return digArea(minecraft.level, menu.machinePos(), menu.range());
+        }
+        return null;
     }
 
     /**

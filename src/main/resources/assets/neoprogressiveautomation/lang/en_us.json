@@ -9,12 +9,14 @@
   "item.neoprogressiveautomation.speed_module": "Speed Module",
   "item.neoprogressiveautomation.efficiency_module": "Efficiency Module",
   "item.neoprogressiveautomation.range_module": "Range Module",
+  "item.neoprogressiveautomation.filter_module": "Filter Module",
 
   "container.neoprogressiveautomation.miner": "Miner",
 
   "tooltip.neoprogressiveautomation.module.speed": "Mines faster, burns fuel faster",
   "tooltip.neoprogressiveautomation.module.efficiency": "Burns less fuel, mines slower",
   "tooltip.neoprogressiveautomation.module.range": "Widens the mining area",
+  "tooltip.neoprogressiveautomation.module.filter": "Mines only ores, leaving terrain intact",
   "tooltip.neoprogressiveautomation.module.slots": "Fits any machine with a free module slot",
 
   "gui.neoprogressiveautomation.miner.status.idle": "Idle",

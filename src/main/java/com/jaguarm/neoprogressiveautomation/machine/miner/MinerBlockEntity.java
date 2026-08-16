@@ -16,8 +16,13 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
@@ -43,6 +48,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
@@ -93,6 +99,15 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
     /** How often the miner scans its neighbours to push output. */
     private static final int PUSH_INTERVAL_TICKS = 20;
+
+    /** Last range pushed to clients, so an unchanged range costs no packets. */
+    private int lastSyncedRange = -1;
+
+    /** How many blocks the target search may examine in one tick. */
+    private static final int SCAN_BUDGET_PER_TICK = 512;
+
+    /** Set when the search stopped on the budget rather than on running out of area. */
+    private boolean scanBudgetExhausted;
 
     public MinerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.MINER.get(), pos, state);
@@ -148,6 +163,7 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         }
 
         syncLitState(level);
+        syncRangeToClients(level);
 
         if (changed) {
             setChanged();
@@ -240,7 +256,9 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
 
         BlockPos target = findNextTarget(level);
         if (target == null) {
-            return MinerStatus.COMPLETE;
+            // No target because the scan budget ran out is not the same as no target
+            // because the area is finished.
+            return scanBudgetExhausted ? MinerStatus.RUNNING : MinerStatus.COMPLETE;
         }
 
         advanceMining(level, target);
@@ -329,12 +347,21 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     private BlockPos findNextTarget(ServerLevel level) {
         int floor = Math.max(Config.MINE_FLOOR.get(), level.getMinY());
         int totalColumns = Spiral.columnsForRadius(range());
+        int budget = SCAN_BUDGET_PER_TICK;
+        scanBudgetExhausted = false;
 
         while (columnIndex <= totalColumns) {
             Spiral.Offset offset = Spiral.offset(columnIndex);
             BlockPos column = worldPosition.offset(offset.x(), 0, offset.z());
 
             while (currentY >= floor) {
+                // A filtered miner skips everything that is not an ore, so it can walk
+                // whole columns without finding work. Cap the walk per tick and resume
+                // where it left off, rather than stalling the server thread.
+                if (budget-- <= 0) {
+                    scanBudgetExhausted = true;
+                    return null;
+                }
                 BlockPos candidate = new BlockPos(column.getX(), currentY, column.getZ());
                 if (toolFor(level.getBlockState(candidate), candidate) != ToolChoice.NONE) {
                     return candidate;
@@ -363,6 +390,13 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         }
         // Don't re-mine our own backfill.
         if (state.is(Blocks.COBBLESTONE) && Config.REQUIRE_COBBLE_BACKFILL.get()) {
+            return ToolChoice.NONE;
+        }
+
+        // With a filter installed, walk past anything that is not an ore. Skipped blocks
+        // are never broken, so no hole forms, no cobble is spent and no stone reaches the
+        // output. This is what stops a miner turning the world into a cobble cube.
+        if (hasFilter() && !state.is(Tags.Blocks.ORES)) {
             return ToolChoice.NONE;
         }
 
@@ -490,6 +524,11 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
             }
         }
         return count;
+    }
+
+    /** True when a filter module is installed, restricting the miner to ores. */
+    private boolean hasFilter() {
+        return moduleCount(ModuleType.FILTER) > 0;
     }
 
     /** Radius in blocks: the configured base, widened by range modules. */
@@ -684,6 +723,35 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
             return 7;
         }
     };
+
+    // -- Client sync ------------------------------------------------------------
+
+    /**
+     * Sends the machine's state to clients so the dig-area preview can be drawn for a
+     * miner the player is merely looking at, without opening its screen.
+     *
+     * <p>Only pushed when the range actually changes, which happens when a module is
+     * inserted or pulled. Mining alone changes nothing the client needs.
+     */
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveCustomOnly(registries);
+    }
+
+    @Override
+    public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    private void syncRangeToClients(ServerLevel level) {
+        int current = range();
+        if (current == lastSyncedRange) {
+            return;
+        }
+        lastSyncedRange = current;
+        BlockState state = getBlockState();
+        level.sendBlockUpdated(worldPosition, state, state, Block.UPDATE_CLIENTS);
+    }
 
     // -- Persistence ------------------------------------------------------------
 

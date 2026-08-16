@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "p": "minecraft:iron_ingot",
+    "h": "minecraft:hopper",
+    "c": "minecraft:comparator"
+  },
+  "pattern": [ "php", "pcp", "php" ],
+  "result": { "id": "neoprogressiveautomation:filter_module" }
+}
