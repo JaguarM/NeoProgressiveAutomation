@@ -32,6 +32,11 @@ bin/
 ### Mac OS ###
 .DS_Store
 
+### Extracted vanilla assets, for study only ###
+# Mojang's textures. Fine to keep locally as reference, must never ship with the mod.
+texture-workshop/reference/
+texture-workshop/reference-sheet.png
+
 ### Reference copies of other mods ###
 # Studied for their approach, not part of this project, and not ours to redistribute.
 JustDireThings-main/
