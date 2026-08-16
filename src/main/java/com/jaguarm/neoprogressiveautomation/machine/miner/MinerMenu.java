@@ -15,8 +15,16 @@ import net.minecraft.world.item.ItemStack;
 
 public class MinerMenu extends AbstractContainerMenu {
 
-    /** Cobble, fuel, pickaxe, shovel, then the module slots. */
+    /** Fuel, fill, pickaxe, shovel, then the module slots. */
     private static final int MACHINE_MENU_SLOTS = 4 + MinerBlockEntity.MODULE_SLOTS;
+
+    /** Top-left of the 2x2 module block. The screen mirrors these. */
+    public static final int MODULE_X = 74;
+    public static final int MODULE_Y = 17;
+
+    /** The fuel slot, which the screen paints over on electric drills. */
+    public static final int FUEL_X = 30;
+    public static final int FUEL_Y = 17;
 
     private final Container container;
     private final ContainerData data;
@@ -42,15 +50,16 @@ public class MinerMenu extends AbstractContainerMenu {
 
         // Machine slots. Positions mirror the generated GUI texture. Every one uses the
         // same shared rule as the block entity so client and server never disagree.
-        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_COBBLE, 8, 17));
-        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_FUEL, 8, 53));
-        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_PICKAXE, 44, 17));
-        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_SHOVEL, 44, 35));
+        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_FUEL, FUEL_X, FUEL_Y));
+        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_COBBLE, 48, 17));
+        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_PICKAXE, 30, 35));
+        addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_SHOVEL, 48, 35));
 
-        // Module slots always exist so the container size is fixed across tiers; locked
-        // ones simply reject everything.
+        // Modules as a 2x2 block. All four always exist so the container size is fixed
+        // across tiers; locked ones reject everything and the screen hides them.
         for (int i = 0; i < MinerBlockEntity.MODULE_SLOTS; i++) {
-            addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_MODULE_START + i, 44 + i * 18, 53));
+            addSlot(new RuleSlot(container, MinerBlockEntity.SLOT_MODULE_START + i,
+                    MODULE_X + (i % 2) * 18, MODULE_Y + (i / 2) * 18));
         }
 
         // Output grid is extract-only.
@@ -243,8 +252,8 @@ public class MinerMenu extends AbstractContainerMenu {
     private boolean moveIntoMachine(ItemStack stack) {
         // Menu index -> container slot, in the order the machine slots were added above.
         int[] containerSlots = new int[MACHINE_MENU_SLOTS];
-        containerSlots[0] = MinerBlockEntity.SLOT_COBBLE;
-        containerSlots[1] = MinerBlockEntity.SLOT_FUEL;
+        containerSlots[0] = MinerBlockEntity.SLOT_FUEL;
+        containerSlots[1] = MinerBlockEntity.SLOT_COBBLE;
         containerSlots[2] = MinerBlockEntity.SLOT_PICKAXE;
         containerSlots[3] = MinerBlockEntity.SLOT_SHOVEL;
         for (int i = 0; i < MinerBlockEntity.MODULE_SLOTS; i++) {

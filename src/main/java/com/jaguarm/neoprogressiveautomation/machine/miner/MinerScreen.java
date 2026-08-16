@@ -30,17 +30,24 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
     private static final int MODULE_SLOT_X = 44;
     private static final int MODULE_SLOT_Y = 53;
 
-    /** The gap between the fill slot and the fuel slot in the left column. */
+    /**
+     * Its own row under the slot blocks, wide enough that a label never has to be clipped
+     * or scrolled. The previous 34px button, wedged between two slots, marqueed "Clear +
+     * Fill" because vanilla scrolls any label wider than its button.
+     */
     private static final int MODE_BUTTON_X = 7;
-    private static final int MODE_BUTTON_Y = 35;
-    private static final int MODE_BUTTON_W = 34;
+    private static final int MODE_BUTTON_Y = 55;
+    private static final int MODE_BUTTON_W = 102;
     private static final int MODE_BUTTON_H = 16;
 
-    /** Sits over the fuel slot, which electric tiers do not use. */
+    /** The tall gauge down the left edge, the shape tech mods use for power. */
     private static final int ENERGY_BAR_X = 8;
-    private static final int ENERGY_BAR_Y = 53;
+    private static final int ENERGY_BAR_Y = 17;
     private static final int ENERGY_BAR_W = 16;
-    private static final int ENERGY_BAR_H = 16;
+    private static final int ENERGY_BAR_H = 34;
+
+    /** Panel base colour, used to paint out module slots a tier has not unlocked. */
+    private static final int PANEL = 0xFFC6C6C6;
     /** Lighter than the slot interior, so an empty gauge reads as empty rather than absent. */
     private static final int ENERGY_EMPTY = 0xFF4A4A4A;
     private static final int ENERGY_FULL = 0xFFE8A22B;
@@ -121,7 +128,29 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
                 256, 256);
 
         shadeLockedModuleSlots(graphics, x, y);
+        hideUnusedPowerUi(graphics, x, y);
         drawEnergyBar(graphics, x, y);
+    }
+
+    /**
+     * Removes whichever power UI this drill does not have.
+     *
+     * <p>The texture carries both a fuel slot and a gauge well so one image serves both
+     * drills, but a burner has no energy and an electric has no use for coal. Leaving the
+     * wrong one visible invites the player to try filling it.
+     */
+    private void hideUnusedPowerUi(GuiGraphicsExtractor graphics, int originX, int originY) {
+        if (this.menu.isElectric()) {
+            paintOverWell(graphics, originX + MinerMenu.FUEL_X, originY + MinerMenu.FUEL_Y, 16, 16);
+        } else {
+            paintOverWell(graphics, originX + ENERGY_BAR_X, originY + ENERGY_BAR_Y,
+                    ENERGY_BAR_W, ENERGY_BAR_H);
+        }
+    }
+
+    /** Covers a well and its bevel in panel colour, so it is simply not there. */
+    private void paintOverWell(GuiGraphicsExtractor graphics, int x, int y, int width, int height) {
+        graphics.fill(x - 1, y - 1, x + width + 1, y + height + 1, PANEL);
     }
 
     /**
@@ -157,20 +186,24 @@ public class MinerScreen extends AbstractContainerScreen<MinerMenu> {
     }
 
     /**
-     * Darkens module slots this tier has not unlocked.
+     * Paints out module slots this tier has not unlocked.
      *
-     * <p>Every miner draws all three slots so the layout is stable across tiers, but a
-     * wooden miner unlocks none of them. Without shading those read as ordinary empty
-     * slots that silently refuse everything.
+     * <p>The texture always carries four wells so the layout is fixed, but a burner drill
+     * unlocks one. Greying the other three left it looking like a broken electric drill
+     * rather than a simpler machine, so the unused wells are covered in the panel colour
+     * and simply are not there.
      */
     private void shadeLockedModuleSlots(GuiGraphicsExtractor graphics, int originX, int originY) {
         for (int i = 0; i < MinerBlockEntity.MODULE_SLOTS; i++) {
             if (this.menu.isModuleSlotUnlocked(i)) {
                 continue;
             }
-            int slotX = originX + MODULE_SLOT_X + i * 18;
-            int slotY = originY + MODULE_SLOT_Y;
-            graphics.fill(slotX, slotY, slotX + 16, slotY + 16, LOCKED_SLOT_OVERLAY);
+            // Cover the whole 18x18 well, bevel included, or its edges stay behind as an
+            // outline of a slot that is not there.
+            paintOverWell(graphics,
+                    originX + MinerMenu.MODULE_X + (i % 2) * 18,
+                    originY + MinerMenu.MODULE_Y + (i / 2) * 18,
+                    16, 16);
         }
     }
 }
