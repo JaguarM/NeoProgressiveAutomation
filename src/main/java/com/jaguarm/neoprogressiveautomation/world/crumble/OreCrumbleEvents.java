@@ -91,16 +91,32 @@ public final class OreCrumbleEvents {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
+
+        // A sticky piston retracting drags the block two out from the piston back with it.
+        // Checked directly rather than left to the structure resolver: when resolve()
+        // returns false there is no structure to inspect, and the earlier version simply
+        // bailed out and let the pull through, which moved the ore and stranded its damage.
+        if (event.getPistonMoveType() == PistonEvent.PistonMoveType.RETRACT
+                && OreCrumbling.isFractured(level, event.getPos().relative(event.getDirection(), 2))) {
+            event.setCanceled(true);
+            return;
+        }
+
         var structure = event.getStructureHelper();
         if (structure == null || !structure.resolve()) {
             return;
         }
+
         for (BlockPos pos : structure.getToPush()) {
             if (OreCrumbling.isFractured(level, pos)) {
                 event.setCanceled(true);
                 return;
             }
         }
+
+        // Blocks a piston shears off never reach the break event, so drop their tracking
+        // here or it lingers on a position that no longer holds ore.
+        structure.getToDestroy().forEach(pos -> OreCrumbling.forget(level, pos));
     }
 
     /**
