@@ -57,6 +57,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
@@ -367,7 +368,13 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
             return;
         }
 
-        int needed = miningDuration(state, target, tool);
+        int needed = miningDuration(level, state, target, tool);
+        if (needed == Integer.MAX_VALUE) {
+            // Effectively unbreakable: hardness below zero, or a mod vetoing the break
+            // speed. Step past instead of counting toward a total we will never reach.
+            currentY--;
+            return;
+        }
         if (requiredTicks != needed) {
             // The target changed under us (another miner, a player, a falling block).
             // Re-time rather than breaking a block we never spent the ticks on.
@@ -457,26 +464,59 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     }
 
     /**
-     * Mirrors vanilla's break timing: hardness scaled to ticks, divided by the tool's dig
-     * speed, with Efficiency applying the same 1.3x per level the original mod used.
+     * Ticks to break a block, using vanilla's own timing.
+     *
+     * <p>Previously this used the 1.12.2 mod's approximation, {@code hardness * 1.5 * 20}
+     * with Efficiency at 1.3x per level. Both are wrong for modern Minecraft, so a machine
+     * visibly disagreed with a player mining the same block with the same pickaxe. Vanilla
+     * computes progress per tick as {@code speed / hardness / modifier} and breaks the
+     * block once that accumulates to 1.
+     *
+     * <p>Module and config multipliers are applied on top of the vanilla result rather than
+     * replacing it, so tool tier, hardness and Efficiency keep behaving as players expect.
      */
-    private int miningDuration(BlockState state, BlockPos pos, ToolChoice tool) {
-        int base = (int) Math.ceil(state.getDestroySpeed(level, pos) * 1.5 * 20);
-        if (tool == ToolChoice.HAND) {
-            return Math.max(Math.round(base * miningTimeFactor()), 1);
+    private int miningDuration(ServerLevel level, BlockState state, BlockPos pos, ToolChoice tool) {
+        float progressPerTick = destroyProgress(level, state, pos, tool);
+        if (progressPerTick <= 0.0f) {
+            return Integer.MAX_VALUE;
         }
 
-        ItemStack toolStack = items.get(slotFor(tool));
+        float ticks = 1.0f / progressPerTick
+                * miningTimeFactor()
+                / Config.MINING_SPEED_MULTIPLIER.get().floatValue();
+        return Math.max((int) Math.ceil(ticks), 1);
+    }
+
+    /** Vanilla's per-tick break progress: {@code speed / hardness / modifier}. */
+    private float destroyProgress(ServerLevel level, BlockState state, BlockPos pos, ToolChoice tool) {
+        float hardness = state.getDestroySpeed(this.level, pos);
+        if (hardness < 0.0f) {
+            return -1.0f;
+        }
+        if (hardness == 0.0f) {
+            // Instant-break blocks; dividing by zero hardness would be infinite progress.
+            return 1.0f;
+        }
+
+        ItemStack toolStack = tool == ToolChoice.HAND ? ItemStack.EMPTY : items.get(slotFor(tool));
+        // 30 with the right tool, 100 without: vanilla's own penalty for bare hands or the
+        // wrong tool, which is why punching stone takes so long.
+        float modifier = toolStack.isCorrectToolForDrops(state) ? 30.0f : 100.0f;
+        return destroySpeed(level, state, pos, toolStack) / hardness / modifier;
+    }
+
+    private float destroySpeed(ServerLevel level, BlockState state, BlockPos pos, ItemStack toolStack) {
         float speed = toolStack.getDestroySpeed(state);
-        if (speed <= 1.0f) {
-            return Math.max(Math.round(base * miningTimeFactor()), 1);
+        if (speed > 1.0f) {
+            int efficiency = enchantmentLevel(toolStack, Enchantments.EFFICIENCY);
+            if (efficiency > 0) {
+                // Vanilla's curve, not a flat multiplier: level squared plus one.
+                speed += efficiency * efficiency + 1;
+            }
         }
-
-        int efficiency = enchantmentLevel(toolStack, Enchantments.EFFICIENCY);
-        for (int i = 0; i < efficiency; i++) {
-            speed *= 1.3f;
-        }
-        return Math.max((int) Math.ceil(base / speed * miningTimeFactor()), 1);
+        // Lets mob effects and other mods adjust the rate, as they would for a player.
+        // Largely academic for a stationary machine, but it costs nothing to be correct.
+        return EventHooks.getBreakSpeed(fakePlayer(level), state, speed, pos);
     }
 
     private void mineBlock(ServerLevel level, BlockPos target, BlockState state, ToolChoice tool) {

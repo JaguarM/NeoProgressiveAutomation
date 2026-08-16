@@ -39,6 +39,15 @@ public final class Config {
                     "also makes the cobble generator upgrade pointless.")
             .define("miner.requireCobbleBackfill", true);
 
+    public static final ModConfigSpec.DoubleValue MINING_SPEED_MULTIPLIER = BUILDER
+            .comment(
+                    "How fast machines mine, relative to a player swinging the same tool.",
+                    "1.0 matches vanilla exactly: a machine with an iron pickaxe takes as",
+                    "long on stone as you would. Above 1.0 is faster, below is slower.",
+                    "Applied on top of vanilla's formula rather than replacing it, so tool",
+                    "tier, block hardness and Efficiency all still behave as expected.")
+            .defineInRange("miner.speedMultiplier", 1.0, 0.05, 100.0);
+
     public static final ModConfigSpec.BooleanValue DESTROY_TOOLS = BUILDER
             .comment("Whether tools are consumed when their durability runs out.")
             .define("miner.destroyTools", true);
