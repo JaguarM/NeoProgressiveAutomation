@@ -17,10 +17,10 @@ assets/neoprogressiveautomation/textures/block/miner_wood_front.png
     the actual 16x16 image
 ```
 
-Right now our models point at `minecraft:block/furnace_front` and friends — that is why
-the miners look like furnaces. Swapping in your own art means only changing the strings in
-the model JSON to `neoprogressiveautomation:block/<name>` and dropping the PNG in
-`textures/block/`. Nothing in the Java changes.
+Swapping in your own art means only changing the strings in the model JSON to
+`neoprogressiveautomation:block/<name>` and dropping the PNG in `textures/block/`.
+Nothing in the Java changes. The miners used to point at `minecraft:block/furnace_front`
+and friends, which is why they looked like furnaces; they now point at our own art.
 
 The `parent` in the model does the 3D work for you. `minecraft:block/orientable` means
 "a cube with a distinct front face"; `cube_all` means "same texture on all six sides".
@@ -83,10 +83,38 @@ Tools
 For our miners
 --------------
 
-Four tiers need a front face each, plus a body. The tiers already read as wood / stone /
-iron / diamond through their side texture, so the front is where the character goes: a
-drill bit, a grille, a gauge. Keep the same silhouette across all four and change only the
-material tones, so they are recognisably one family at a glance.
+The miners are burner drills: Minecraft's furnace grammar (recessed firebox, one bright
+plate seam, heavy pixel noise) carrying Factorio's machine silhouette (a tapering drill
+bit and a warm trim band that wraps the chassis).
+
+`make_miner_textures.py` draws all sixteen of them:
+
+```
+python texture-workshop/make_miner_textures.py            # write the PNGs
+python texture-workshop/make_miner_textures.py --preview  # also write preview.png
+```
+
+It holds three 16x16 ASCII maps — front, side, top — and one five-tone palette per tier,
+then renders every combination. That is the family rule made mechanical: edit a map and
+all four tiers change together, so they cannot drift apart. Only the palettes differ, and
+each is sampled off the vanilla block the tier is made of (`oak_planks`, `cobblestone`,
+`iron_block`, `diamond_block`), extended one step darker where vanilla has no tone dark
+enough to read as a recess.
+
+Three things stay identical across all four tiers, and they are what make the set read as
+one machine family:
+
+- the **firebox**, cold at `#191919` and lit with vanilla `furnace_front_on`'s own two
+  fire tones, `#ff8f00` and `#ffd800`
+- the **trim band**, at the same row on the front and the side so the yellow wraps the
+  corner instead of stopping at it
+- the **drill bit**, a segmented cone with a highlight down its left edge
+
+Each texture lands between 6 and 9 colours, which is cobblestone-to-furnace_front
+territory. If a change pushes one past about 13, something has gone soft.
+
+The 3D preview is worth trusting more than the flat one — check the trim band still lines
+up across the front/side corner after any edit to those rows.
 
 `reference/` holds vanilla textures extracted from the client jar for study. They are
 Mojang's assets, so that folder is git-ignored and must not ship with the mod.
