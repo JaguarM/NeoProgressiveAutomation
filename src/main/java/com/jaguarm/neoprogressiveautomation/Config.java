@@ -43,6 +43,23 @@ public final class Config {
             .comment("Whether tools are consumed when their durability runs out.")
             .define("miner.destroyTools", true);
 
+    // -- Crumbling ores ---------------------------------------------------------
+
+    public static final ModConfigSpec.BooleanValue CRUMBLING_ORES = BUILDER
+            .comment(
+                    "Whether ore blocks crumble instead of breaking outright.",
+                    "A crumbling ore stays in the world and wears down visibly over several",
+                    "harvests, dropping its loot each time. Applies to anything in the ores",
+                    "tag, so modded ores and ores placed by vein mods are included.")
+            .define("crumbling.enabled", true);
+
+    public static final ModConfigSpec.IntValue CRUMBLE_HARVESTS = BUILDER
+            .comment(
+                    "How many harvests it takes to exhaust one ore block.",
+                    "Each harvest drops the block's normal loot, so raising this raises the",
+                    "total yield of every ore in the world as well as the time to extract it.")
+            .defineInRange("crumbling.harvestsPerOre", 8, 1, 64);
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private Config() {}

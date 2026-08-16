@@ -8,6 +8,7 @@ import com.jaguarm.neoprogressiveautomation.machine.MachineTier;
 import com.jaguarm.neoprogressiveautomation.machine.ModuleItem;
 import com.jaguarm.neoprogressiveautomation.machine.ModuleType;
 import com.jaguarm.neoprogressiveautomation.machine.Spiral;
+import com.jaguarm.neoprogressiveautomation.world.crumble.OreCrumbling;
 import com.jaguarm.neoprogressiveautomation.registry.ModBlockEntities;
 
 import org.jspecify.annotations.Nullable;
@@ -436,6 +437,24 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         BlockEntity targetEntity = level.getBlockEntity(target);
         ItemStack toolStack = tool == ToolChoice.HAND ? ItemStack.EMPTY : items.get(slotFor(tool));
 
+        // Ore crumbles rather than breaking: take one harvest and leave the rest standing.
+        // Smashing it in one pass and backfilling would throw away everything still in the
+        // block, which is the whole point of the mechanic.
+        if (OreCrumbling.crumbles(state)) {
+            boolean exhausted = OreCrumbling.harvest(
+                    level, target, state, toolStack, null, drop -> storeOrDrop(level, drop));
+            if (tool != ToolChoice.HAND) {
+                damageTool(level, slotFor(tool));
+            }
+            if (!exhausted) {
+                // Still ore. Leave it in place and come back to it next pass rather than
+                // advancing, so the machine keeps working the same block down.
+                return;
+            }
+            replaceMinedBlock(level, target);
+            return;
+        }
+
         List<ItemStack> drops;
         if (enchantmentLevel(toolStack, Enchantments.SILK_TOUCH) > 0) {
             drops = List.of(new ItemStack(state.getBlock()));
@@ -446,15 +465,20 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
             storeOrDrop(level, drop);
         }
 
+        replaceMinedBlock(level, target);
+
+        if (tool != ToolChoice.HAND) {
+            damageTool(level, slotFor(tool));
+        }
+    }
+
+    /** Backfills with cobble, or leaves air, depending on the config. */
+    private void replaceMinedBlock(ServerLevel level, BlockPos target) {
         if (Config.REQUIRE_COBBLE_BACKFILL.get()) {
             level.setBlockAndUpdate(target, Blocks.COBBLESTONE.defaultBlockState());
             items.get(SLOT_COBBLE).shrink(1);
         } else {
             level.removeBlock(target, false);
-        }
-
-        if (tool != ToolChoice.HAND) {
-            damageTool(level, slotFor(tool));
         }
     }
 
