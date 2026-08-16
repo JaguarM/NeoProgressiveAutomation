@@ -6,6 +6,8 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="JaguarM"
 logoFile="${mod_id}.png"
+displayURL="https://github.com/JaguarM/NeoProgressiveAutomation"
+issueTrackerURL="https://github.com/JaguarM/NeoProgressiveAutomation/issues"
 
 description='''
 Two mining drills, and nothing else.
