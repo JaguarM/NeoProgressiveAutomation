@@ -654,13 +654,18 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
             // This is how the drill cooperates with mods that intercept mining, Crumbling
             // Ore among them: an ore that wears down over several hits cancels the break
             // each time and drops one harvest, and the drill simply keeps working it.
-            absorbDrops(level, target);
+            boolean handled = absorbDrops(level, target);
             if (tool != ToolChoice.HAND) {
                 damageTool(level, slotFor(tool));
             }
-            if (level.getBlockState(target).equals(state)) {
-                // Unchanged and refused outright: nothing we do here will ever take it, so
-                // step past instead of retrying forever.
+            if (!handled) {
+                // Nothing came of it, so this was a refusal rather than somebody else
+                // doing the work. Step past instead of retrying forever.
+                //
+                // Whether anything dropped is the signal, not whether the block changed:
+                // an ore that wears down over several hits keeps the very same blockstate
+                // throughout, holding its progress elsewhere, so "unchanged" would have
+                // read every hit as a refusal and walked away after the first.
                 currentY--;
             }
             return;
@@ -681,6 +686,12 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         if (tool != ToolChoice.HAND) {
             damageTool(level, slotFor(tool));
         }
+
+        // Always move down after taking a block, rather than letting the next scan decide.
+        // A position can refill: lava meeting water makes cobblestone, and in a mode that
+        // leaves holes the drill would mine that same spot forever, generating stone and
+        // never reaching the bottom.
+        currentY--;
     }
 
     /**
@@ -731,20 +742,23 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
      * the drill collects whatever ended up there. Anything it cannot fit is left lying, as
      * it would be for a player.
      */
-    private void absorbDrops(ServerLevel level, BlockPos target) {
+    private boolean absorbDrops(ServerLevel level, BlockPos target) {
         AABB area = new AABB(target).inflate(0.5);
+        boolean collected = false;
         for (ItemEntity entity : level.getEntitiesOfClass(ItemEntity.class, area)) {
             if (entity.isRemoved()) {
                 continue;
             }
             ItemStack stack = entity.getItem();
             storeOrDrop(level, stack);
+            collected = true;
             if (stack.isEmpty()) {
                 entity.discard();
             } else {
                 entity.setItem(stack);
             }
         }
+        return collected;
     }
 
     /** Puts a stack in the output slots, dropping any remainder into the world. */
@@ -845,7 +859,20 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
     /** Advances to the next mode. Called from the screen's button, through the menu. */
     public void cycleDigMode() {
         digMode = digMode.next();
+        // A drill that had finished its area is done for good until something changes what
+        // it is looking for. Switching from ore to clearing everything is exactly that, and
+        // without a restart the machine would sit reporting "Area cleared" over untouched
+        // stone.
+        restartScan();
         setChanged();
+    }
+
+    /** Sends the search back to the top of the first column. */
+    private void restartScan() {
+        columnIndex = 1;
+        currentY = worldPosition.getY() - 1;
+        elapsedTicks = 0;
+        requiredTicks = 0;
     }
 
     /**
@@ -1092,6 +1119,12 @@ public class MinerBlockEntity extends BlockEntity implements WorldlyContainer, M
         int current = range();
         if (current == lastSyncedRange) {
             return;
+        }
+        // A wider area is new ground to cover, so a drill that had finished goes back to
+        // work. Only on a genuine change, and not on the first tick after loading, where
+        // lastSyncedRange starts unset and would otherwise restart every drill in the world.
+        if (lastSyncedRange >= 0 && current > lastSyncedRange) {
+            restartScan();
         }
         lastSyncedRange = current;
         BlockState state = getBlockState();
